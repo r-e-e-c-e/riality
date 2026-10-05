@@ -1,16 +1,20 @@
 import { building, dev } from '$app/env';
 import { ZodError } from 'zod';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit/hooks';
-import { config, identity, services } from '#server/app.js';
+import { changeFeed, config, identity, services } from '#server/app.js';
 import { startBackgroundJobs } from '#server/jobs.js';
 import { BusinessError } from '#server/errors.js';
 import { describeError, logger } from '#server/logger.js';
 import { runWithRequestContext } from '#server/request-context.js';
 import { SESSION_COOKIE, deleteSessionCookie } from '#server/request.js';
 
-export const init: ServerInit = () => {
-	if (!building) startBackgroundJobs(services, config.mail);
+export const init: ServerInit = async () => {
+	if (building) return;
+	startBackgroundJobs(services, config.mail);
+	await changeFeed.start();
 };
+
+const LIVE_UPDATES_PATH = '/api/events';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const startedAt = performance.now();
@@ -21,7 +25,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (!building) {
 		const token = event.cookies.get(SESSION_COOKIE);
-		const signedIn = await identity.authenticate(token);
+		// The live-updates stream is not user activity, so it never keeps a session alive.
+		const touch = event.url.pathname !== LIVE_UPDATES_PATH;
+		const signedIn = await identity.authenticate(token, { touch });
 		if (signedIn) {
 			event.locals.user = signedIn.user;
 			event.locals.session = signedIn.session;

@@ -381,10 +381,13 @@ export function createIdentityService(
 		/**
 		 * Looks up the session for a cookie token on every request. Returns null if the
 		 * session is missing, expired, idle too long, belongs to a disabled account, or
-		 * skipped a second factor the account now has.
+		 * skipped a second factor the account now has. Pass `touch: false` for requests
+		 * that are not user activity (the live-updates stream), so they never keep an
+		 * idle session alive.
 		 */
 		async authenticate(
-			token: string | undefined
+			token: string | undefined,
+			{ touch = true } = {}
 		): Promise<{ user: AuthUser; session: AuthSession } | null> {
 			if (!token || !tokenSchema.safeParse(token).success) return null;
 			const tokenHash = await hashToken(token);
@@ -407,19 +410,37 @@ export function createIdentityService(
 			if (result.mfaEnabledAt && !result.session.mfaVerifiedAt) return null;
 
 			// Record activity at most once a minute, to keep writes low.
-			await db
-				.update(sessions)
-				.set({ lastSeenAt: new Date() })
-				.where(
-					and(
-						eq(sessions.tokenHash, tokenHash),
-						lt(sessions.lastSeenAt, new Date(Date.now() - 60_000))
-					)
-				);
+			if (touch)
+				await db
+					.update(sessions)
+					.set({ lastSeenAt: new Date() })
+					.where(
+						and(
+							eq(sessions.tokenHash, tokenHash),
+							lt(sessions.lastSeenAt, new Date(Date.now() - 60_000))
+						)
+					);
 			return {
 				user: { ...result.user, mfaEnabled: Boolean(result.mfaEnabledAt) },
 				session: result.session
 			};
+		},
+
+		/**
+		 * True if the session is still signed in, with the same checks as authenticate().
+		 * Read-only: it never counts as activity.
+		 */
+		async isSessionLive(sessionId: string) {
+			const [result] = await db
+				.select({
+					mfaVerifiedAt: sessions.mfaVerifiedAt,
+					mfaEnabledAt: mfaCredentials.enabledAt
+				})
+				.from(sessions)
+				.innerJoin(users, eq(users.id, sessions.userId))
+				.leftJoin(mfaCredentials, eq(mfaCredentials.userId, users.id))
+				.where(and(eq(sessions.id, sessionId), isLiveSession(), isActiveUser()));
+			return Boolean(result) && !(result!.mfaEnabledAt && !result!.mfaVerifiedAt);
 		},
 
 		async logout(tokenHash: string) {
