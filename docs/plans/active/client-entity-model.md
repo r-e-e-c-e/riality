@@ -22,8 +22,10 @@ firms before building the audit workflow itself. There are three separate concep
 3. [ ] **Entity relationships**: ownership graph (parent → child, %, kind), allowed
        across clients; group-structure view on the client page. Feeds related parties,
        independence checks, exemptions and later group audits.
-4. [ ] **Client and staff roles**: client partner and manager; staff professional
-       profile (qualification, Responsible Individual status for audit sign-off).
+4. [ ] **Client and staff roles**: ~~client partner and manager~~ (done, with status,
+       key contact, risk rating and acceptance review date; Clients table and client
+       page). Still to do: staff professional profile (qualification, Responsible
+       Individual status for audit sign-off).
 5. [ ] **Files**: storage choice (S3-compatible), upload security review, permanent
        file per entity. Scope: client, entity or engagement.
 6. [ ] **Threads, requests and tasks**, then the client portal (people as external
@@ -48,7 +50,7 @@ Out of scope (V1 non-goals): billing, time and WIP, CRM pipeline, tax, schedulin
 
 ## Step 2 decisions
 
-- People live in the `clients` module (`person.entity.ts`, `people.service.ts`). One
+- People live in the `clients` module (tables in `client.entity.ts`, `people.service.ts`). One
   `person` per real person per firm (individual or organisation); `entity_role` links
   them to entities with dates, a shareholding for shareholders and control kinds for
   PSCs. The same role from the same start date is recorded once.

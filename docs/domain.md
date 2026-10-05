@@ -48,7 +48,10 @@ Firm
 Three separate concepts (see `docs/plans/active/client-entity-model.md`):
 
 - **Client**: the commercial relationship the firm manages (for example "Harrow
-  family"). It holds one or more entities.
+  family"). It holds one or more entities, and records its status (prospect, active,
+  former), the responsible partner and manager (firm members), a key contact (one of
+  its people), the firm's risk rating and when acceptance or continuance was last
+  reviewed (due again after 12 months).
 - **Entity**: a legal or reporting body that is audited: type (private limited,
   LLP, company limited by guarantee, CIO, ...), company number, register status,
   year end, accounts due date, accounting framework (FRS 102, 102 1A, 105, Charities
