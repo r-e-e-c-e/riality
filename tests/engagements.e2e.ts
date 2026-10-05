@@ -289,3 +289,36 @@ test('the header shows the firm, its navigation and an account menu', async ({ p
 	await page.goto('/');
 	await expect(page).toHaveURL(/\/login$/);
 });
+
+test('entities are added on the Clients page and edited on their own page', async ({ page }) => {
+	await signIn(page, ownerEmail);
+	await page.goto(`/${handle}/clients`);
+	await openDisclosure(page, 'Add a client');
+	await page.getByLabel('Client name', { exact: true }).fill('Synthetic Register Client');
+	await page.getByRole('button', { name: 'Add client', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Synthetic Register Client' })).toBeVisible();
+
+	// Companies House is not configured in tests, so details are entered by hand.
+	await openDisclosure(page, 'Add a legal entity');
+	await page
+		.getByRole('combobox', { name: 'Client', exact: true })
+		.selectOption({ label: 'Synthetic Register Client' });
+	await page.getByLabel(/^Company number/).fill('oc301234');
+	await page.getByLabel(/^Name/).fill('Synthetic Register LLP');
+	await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('llp');
+	await page.getByRole('button', { name: 'Add entity', exact: true }).click();
+	await page.getByRole('link', { name: 'Synthetic Register LLP' }).click();
+
+	await expect(page.getByRole('heading', { name: 'Synthetic Register LLP' })).toBeVisible();
+	await expect(page.getByText('OC301234')).toBeVisible();
+	await openDisclosure(page, 'Edit details');
+	await page
+		.getByRole('combobox', { name: 'Accounting framework', exact: true })
+		.selectOption('frs102_1a');
+	await page.getByLabel('Year end day', { exact: true }).fill('31');
+	await page.getByRole('combobox', { name: 'Year end month', exact: true }).selectOption('3');
+	await page.getByRole('button', { name: 'Save details', exact: true }).click();
+	const details = page.getByRole('definition');
+	await expect(details.filter({ hasText: /^31 March$/ })).toBeVisible();
+	await expect(details.filter({ hasText: 'FRS 102 Section 1A (small entities)' })).toBeVisible();
+});

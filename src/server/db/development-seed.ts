@@ -7,7 +7,7 @@ import { lockTenancyAdministration } from '../modules/tenancy/tenancy-access';
 import { tenants } from '../modules/tenancy/tenant.entity';
 import { openDatabase } from './connection';
 import { validateResetTarget, type DevelopmentEnvironment } from './development-reset';
-import { clients, entities } from '../modules/engagements/client.entity';
+import { clients, entities } from '../modules/clients/client.entity';
 import { engagements } from '../modules/engagements/engagement.entity';
 import { reportingPeriods } from '../modules/engagements/reporting-period.entity';
 import { engagementTeam } from '../modules/engagements/team.entity';

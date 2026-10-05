@@ -10,4 +10,4 @@ import { createServices } from './services';
 export const config = createConfig(env, { building, dev });
 export const { db } = openDatabase(config.databaseUrl);
 export const services = createServices(db, config);
-export const { identity, mfa, tenancy, invitations, engagements } = services;
+export const { identity, mfa, tenancy, invitations, clients, engagements } = services;

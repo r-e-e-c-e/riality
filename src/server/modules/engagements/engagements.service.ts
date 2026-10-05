@@ -1,12 +1,10 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { Database, Transaction } from '../../db/connection';
 import { inTransaction } from '../../db/transaction';
 import { BusinessError, notFound } from '../../errors';
 import {
-	createClientSchema,
 	createEngagementSchema,
-	createEntitySchema,
 	engagementScopeSchema,
 	teamAssignmentSchema
 } from '#lib/schemas/engagements.js';
@@ -22,7 +20,7 @@ import {
 	type Actor
 } from '../tenancy/tenancy-access';
 import { tenants } from '../tenancy/tenant.entity';
-import { clients, entities } from './client.entity';
+import { clients, entities } from '../clients/client.entity';
 import { engagements } from './engagement.entity';
 import { requireEngagementTeamMember } from './engagement-access';
 import { reportingPeriods } from './reporting-period.entity';
@@ -104,8 +102,8 @@ export async function removeFirmAssignments(
 }
 
 /**
- * Clients, legal entities, engagements and engagement teams. Every method checks
- * access first (see engagement-access.ts), then filters queries by the firm.
+ * Engagements and engagement teams (clients and entities are in the clients module).
+ * Every method checks access first, then filters queries by the firm.
  */
 export function createEngagementsService(db: Database) {
 	return {
@@ -116,54 +114,6 @@ export function createEngagementsService(db: Database) {
 			return selectEngagements(db, actor)
 				.where(and(eq(engagements.firmId, id), eq(engagementTeam.userId, actor.id)))
 				.orderBy(...newestPeriodFirst);
-		},
-
-		/**
-		 * The firm's clients and their legal entities. Owners and admins see all of them;
-		 * members see only clients with an engagement they are assigned to.
-		 */
-		async listClientDirectory(actor: Actor, firmId: string) {
-			const id = idSchema.parse(firmId);
-			const { role } = await requireFirmMember(db, actor, id);
-			const isAdmin = isOwnerOrAdmin(role);
-			const onMyTeam = sql`exists (
-				select 1 from ${reportingPeriods}
-				join ${engagements} on ${engagements.firmId} = ${reportingPeriods.firmId}
-					and ${engagements.periodId} = ${reportingPeriods.id}
-				join ${engagementTeam} on ${engagementTeam.firmId} = ${engagements.firmId}
-					and ${engagementTeam.engagementId} = ${engagements.id}
-				where ${reportingPeriods.firmId} = ${entities.firmId}
-					and ${reportingPeriods.entityId} = ${entities.id}
-					and ${engagementTeam.userId} = ${actor.id}
-			)`;
-			const rows = await db
-				.select({
-					clientId: clients.id,
-					clientName: clients.name,
-					entityId: entities.id,
-					entityName: entities.name
-				})
-				.from(clients)
-				.leftJoin(
-					entities,
-					and(eq(entities.firmId, clients.firmId), eq(entities.clientId, clients.id))
-				)
-				.where(and(eq(clients.firmId, id), isAdmin ? undefined : onMyTeam))
-				.orderBy(clients.name, clients.id, entities.name);
-
-			// Group the rows into clients, each with its entities.
-			const directory: { id: string; name: string; entities: { id: string; name: string }[] }[] =
-				[];
-			for (const row of rows) {
-				let client = directory.at(-1);
-				if (client?.id !== row.clientId) {
-					client = { id: row.clientId, name: row.clientName, entities: [] };
-					directory.push(client);
-				}
-				if (row.entityId && row.entityName)
-					client.entities.push({ id: row.entityId, name: row.entityName });
-			}
-			return directory;
 		},
 
 		/**
@@ -203,72 +153,6 @@ export function createEngagementsService(db: Database) {
 				)
 				.orderBy(users.name, users.id);
 			return { ...engagement, team };
-		},
-
-		async listClients(actor: Actor, firmId: string) {
-			const id = idSchema.parse(firmId);
-			await requireFirmAdmin(db, actor, id);
-			return db
-				.select({ id: clients.id, name: clients.name })
-				.from(clients)
-				.where(eq(clients.firmId, id))
-				.orderBy(clients.name, clients.id);
-		},
-
-		async listEntities(actor: Actor, firmId: string) {
-			const id = idSchema.parse(firmId);
-			await requireFirmAdmin(db, actor, id);
-			return db
-				.select({
-					id: entities.id,
-					name: entities.name,
-					clientId: clients.id,
-					clientName: clients.name
-				})
-				.from(entities)
-				.innerJoin(
-					clients,
-					and(eq(clients.firmId, entities.firmId), eq(clients.id, entities.clientId))
-				)
-				.where(eq(entities.firmId, id))
-				.orderBy(clients.name, entities.name, entities.id);
-		},
-
-		async createClient(actor: Actor, input: z.infer<typeof createClientSchema>) {
-			const values = createClientSchema.parse(input);
-			return inTransaction(db, async (tx) => {
-				await requireFirmAdmin(tx, actor, values.firmId);
-				const [client] = await tx.insert(clients).values(values).returning();
-				await recordEvent(tx, {
-					action: 'client.created',
-					actorId: actor.id,
-					tenantId: values.firmId,
-					target: { type: 'client', id: client.id }
-				});
-				return client;
-			});
-		},
-
-		async createEntity(actor: Actor, input: z.infer<typeof createEntitySchema>) {
-			const values = createEntitySchema.parse(input);
-			return inTransaction(db, async (tx) => {
-				await requireFirmAdmin(tx, actor, values.firmId);
-				const [client] = await tx
-					.select({ id: clients.id })
-					.from(clients)
-					.where(and(eq(clients.firmId, values.firmId), eq(clients.id, values.clientId)));
-				if (!client) throw notFound('Client');
-
-				const [entity] = await tx.insert(entities).values(values).returning();
-				await recordEvent(tx, {
-					action: 'entity.created',
-					actorId: actor.id,
-					tenantId: values.firmId,
-					target: { type: 'entity', id: entity.id },
-					details: { clientId: values.clientId }
-				});
-				return entity;
-			});
 		},
 
 		/**

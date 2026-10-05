@@ -5,10 +5,11 @@ import { testConfig } from '../config';
 import { createTenant, testOperator } from '../tenants';
 import { createServices } from '../../src/server/services';
 import { createTenancyService } from '../../src/server/modules/tenancy/tenancy.service';
+import { createClientsService } from '../../src/server/modules/clients/clients.service';
 import { createEngagementsService } from '../../src/server/modules/engagements/engagements.service';
 import { createIdentityAdministrationService } from '../../src/server/modules/identity/identity-administration.service';
 import { users } from '../../src/server/modules/identity/user.entity';
-import { clients, entities } from '../../src/server/modules/engagements/client.entity';
+import { clients, entities } from '../../src/server/modules/clients/client.entity';
 import { reportingPeriods } from '../../src/server/modules/engagements/reporting-period.entity';
 import { engagements } from '../../src/server/modules/engagements/engagement.entity';
 import { engagementTeam } from '../../src/server/modules/engagements/team.entity';
@@ -30,7 +31,8 @@ async function setup(restricted = false) {
 			)
 			.returning();
 		const tenancy = createTenancyService(db),
-			service = createEngagementsService(db);
+			service = createEngagementsService(db),
+			clients = createClientsService(db, testConfig(), null);
 		const group = await createTenant(db, owner, {
 			name: 'Synthetic Group',
 			kind: 'group',
@@ -54,8 +56,8 @@ async function setup(restricted = false) {
 			userId: outsider.id,
 			role: 'member'
 		});
-		const client = await service.createClient(owner, { firmId: firm.id, name: 'Synthetic Client' });
-		const entity = await service.createEntity(owner, {
+		const client = await clients.createClient(owner, { firmId: firm.id, name: 'Synthetic Client' });
+		const entity = await clients.createEntity(owner, {
 			firmId: firm.id,
 			clientId: client.id,
 			name: 'Synthetic Trading Ltd'
@@ -82,7 +84,8 @@ async function setup(restricted = false) {
 			engagement,
 			scope,
 			tenancy,
-			service
+			service,
+			clients
 		};
 	} catch (cause) {
 		await fixture.close();
@@ -146,9 +149,9 @@ test('firm administration, parent ownership and team responsibilities grant dist
 		await expect(f.service.listForFirm(f.outsider, f.firm.id)).rejects.toMatchObject({
 			status: 404
 		});
-		await expect(f.service.listClients(f.member, f.firm.id)).rejects.toMatchObject({ status: 403 });
+		await expect(f.clients.listClients(f.member, f.firm.id)).rejects.toMatchObject({ status: 403 });
 		await expect(
-			f.service.createClient(f.member, { firmId: f.firm.id, name: 'Denied' })
+			f.clients.createClient(f.member, { firmId: f.firm.id, name: 'Denied' })
 		).rejects.toMatchObject({ status: 403 });
 		await f.service.setAssignment(f.owner, { ...f.scope, userId: f.member.id, role: 'partner' });
 		expect((await f.service.get(f.member, f.scope)).myRole).toBe('partner');
@@ -174,25 +177,33 @@ test('firm administration, parent ownership and team responsibilities grant dist
 test('the client directory shows admins every client and members only their clients', async () => {
 	const f = await setup();
 	try {
-		const quiet = await f.service.createClient(f.owner, {
+		const quiet = await f.clients.createClient(f.owner, {
 			firmId: f.firm.id,
 			name: 'Quiet Client'
 		});
 		const names = async (actor: { id: string }) =>
-			(await f.service.listClientDirectory(actor, f.firm.id)).map((client) => client.name);
+			(await f.clients.listClientDirectory(actor, f.firm.id)).map((client) => client.name);
 		expect(await names(f.admin)).toEqual(['Quiet Client', 'Synthetic Client']);
 		expect(await names(f.member)).toEqual([]);
 		await f.service.setAssignment(f.owner, { ...f.scope, userId: f.member.id, role: 'auditor' });
-		const directory = await f.service.listClientDirectory(f.member, f.firm.id);
+		const directory = await f.clients.listClientDirectory(f.member, f.firm.id);
 		expect(directory).toEqual([
 			{
 				id: f.client.id,
 				name: 'Synthetic Client',
-				entities: [{ id: f.entity.id, name: 'Synthetic Trading Ltd' }]
+				entities: [
+					{
+						id: f.entity.id,
+						name: 'Synthetic Trading Ltd',
+						entityType: 'private_limited',
+						companyNumber: null,
+						companyStatus: null
+					}
+				]
 			}
 		]);
 		expect(directory.some((client) => client.id === quiet.id)).toBe(false);
-		await expect(f.service.listClientDirectory(f.outsider, f.firm.id)).rejects.toMatchObject({
+		await expect(f.clients.listClientDirectory(f.outsider, f.firm.id)).rejects.toMatchObject({
 			status: 404
 		});
 	} finally {
@@ -203,15 +214,15 @@ test('the client directory shows admins every client and members only their clie
 test('mixed firm/resource IDs and non-firm resources fail at services and composite database constraints', async () => {
 	const f = await setup();
 	try {
-		const other = await f.service.createClient(f.owner, {
+		const other = await f.clients.createClient(f.owner, {
 			firmId: f.otherFirm.id,
 			name: 'Other client'
 		});
 		await expect(
-			f.service.createClient(f.owner, { firmId: f.group.id, name: 'Denied' })
+			f.clients.createClient(f.owner, { firmId: f.group.id, name: 'Denied' })
 		).rejects.toMatchObject({ status: 404 });
 		await expect(
-			f.service.createEntity(f.owner, { firmId: f.firm.id, clientId: other.id, name: 'Denied' })
+			f.clients.createEntity(f.owner, { firmId: f.firm.id, clientId: other.id, name: 'Denied' })
 		).rejects.toMatchObject({ status: 404 });
 		await expect(
 			f.service.create(f.owner, {
@@ -367,11 +378,11 @@ test('concurrent assignment/removal cannot leave a revoked member assigned', asy
 test('assigned work across firms authorizes each row without inherited or sibling access', async () => {
 	const f = await setup();
 	try {
-		const client = await f.service.createClient(f.owner, {
+		const client = await f.clients.createClient(f.owner, {
 			firmId: f.otherFirm.id,
 			name: 'Other client'
 		});
-		const entity = await f.service.createEntity(f.owner, {
+		const entity = await f.clients.createEntity(f.owner, {
 			firmId: f.otherFirm.id,
 			clientId: client.id,
 			name: 'Other Trading Ltd'

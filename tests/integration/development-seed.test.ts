@@ -14,6 +14,7 @@ import {
 	seedUsers,
 	tenantRow
 } from '../../src/server/db/seed-data';
+import { createClientsService } from '../../src/server/modules/clients/clients.service';
 import { createEngagementsService } from '../../src/server/modules/engagements/engagements.service';
 import { auditEvents } from '../../src/server/modules/audit/audit-event.entity';
 import { memberships } from '../../src/server/modules/tenancy/membership.entity';
@@ -188,9 +189,12 @@ test('seeded accounts can sign in and parent owners never implicitly gain subsid
 			work.get(morgan, { firmId: seedIds.wilkinsFirm, engagementId: calder.id })
 		).rejects.toMatchObject({ status: 404 });
 		expect(
-			(await work.listClientDirectory({ id: seedIds.auditor }, seedIds.baldwynFirm)).map(
-				(client) => client.name
-			)
+			(
+				await createClientsService(fixture.runtimeDb, config, null).listClientDirectory(
+					{ id: seedIds.auditor },
+					seedIds.baldwynFirm
+				)
+			).map((client) => client.name)
 		).toEqual([
 			'Aire Valley Care',
 			'Harrow Family Holdings',

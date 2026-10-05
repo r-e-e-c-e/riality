@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { check, date, foreignKey, snakeCase, unique, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from '../../db/columns';
-import { entities } from './client.entity';
+import { entities } from '../clients/client.entity';
 
 /** The financial period being audited for one entity, for example 1 Jan to 31 Dec 2025. */
 export const reportingPeriods = snakeCase.table(

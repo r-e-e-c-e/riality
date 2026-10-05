@@ -297,7 +297,27 @@ const portfolio: Portfolio = [
 
 // The portfolio flattened into table rows, with fixed IDs.
 export const seedClients: { id: string; firmId: string; name: string }[] = [];
-export const seedEntities: { id: string; firmId: string; clientId: string; name: string }[] = [];
+export const seedEntities: {
+	id: string;
+	firmId: string;
+	clientId: string;
+	name: string;
+	entityType: 'private_limited';
+	companyNumber: string;
+	companyStatus: 'active';
+	yearEndDay: number;
+	yearEndMonth: number;
+	accountingFramework: 'frs102' | 'frs102_1a';
+	sizeClass: 'small' | 'medium';
+}[] = [];
+
+// Larger clients report under full FRS 102; the rest are small companies.
+const mediumSized = new Set([
+	'Whitcombe Motors Ltd',
+	'Aire Valley Care Homes Ltd',
+	'Pennine Logistics Ltd',
+	'Thornbury Construction Ltd'
+]);
 export const seedPeriods: {
 	id: string;
 	firmId: string;
@@ -319,7 +339,23 @@ for (const { firmId, clients } of portfolio) {
 		seedClients.push({ id: clientId, firmId, name: client.name });
 		for (const entity of client.entities) {
 			const entityId = fixtureId(5, seedEntities.length + 1);
-			seedEntities.push({ id: entityId, firmId, clientId, name: entity.name });
+			// Year end from the entity's audits; 31 December for entities not yet audited.
+			const [, endMonth, endDay] = (entity.audits[0]?.end ?? '2025-12-31').split('-').map(Number);
+			const medium = mediumSized.has(entity.name);
+			seedEntities.push({
+				id: entityId,
+				firmId,
+				clientId,
+				name: entity.name,
+				entityType: 'private_limited',
+				// ZZ is never issued by Companies House, so these can't match a real company.
+				companyNumber: `ZZ${String(seedEntities.length + 1).padStart(6, '0')}`,
+				companyStatus: 'active',
+				yearEndDay: endDay,
+				yearEndMonth: endMonth,
+				accountingFramework: medium ? 'frs102' : 'frs102_1a',
+				sizeClass: medium ? 'medium' : 'small'
+			});
 			for (const audit of entity.audits) {
 				const periodId = fixtureId(6, seedPeriods.length + 1);
 				const engagementId = fixtureId(7, seedEngagements.length + 1);
@@ -405,7 +441,7 @@ for (const entity of seedEntities) {
 		tenantId: entity.firmId,
 		targetType: 'entity',
 		targetId: entity.id,
-		details: { clientId: entity.clientId }
+		details: { clientId: entity.clientId, source: 'manual' }
 	});
 }
 for (const engagement of seedEngagements) {
