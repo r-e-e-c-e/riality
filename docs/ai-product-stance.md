@@ -2,6 +2,7 @@ AI is an accelerator around the audit graph.
 AI is not the audit graph.
 
 Good AI applications:
+
 1. TB mapping suggestions
 1. preliminary variance explanations
 1. draft entity understanding

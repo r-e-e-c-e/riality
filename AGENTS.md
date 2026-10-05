@@ -1,167 +1,90 @@
-## Project Configuration
-
-- **Language**: TypeScript
-- **Package Manager**: bun
-- **Add-ons**: experimental, prettier, eslint, vitest, playwright, sveltekit-adapter, drizzle, ai-tools, enhanced-img
-
----
-
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
-
-## Available Svelte MCP Tools:
-
-### 1. list-sections
-
-Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
-When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
-
-### 2. get-documentation
-
-Retrieves full documentation content for specific sections. Accepts single or multiple sections.
-After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
-
-### 3. svelte-autofixer
-
-Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
-
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
-
 # Lines
 
-Lines is a modern cloud audit platform for accounting firms.
+Lines is a cloud audit platform for UK accounting firms. V1 is narrowly focused on
+straightforward UK SME statutory audits. Long term it may grow into wider financial
+work, but do not build future products into the current app.
 
-The initial product is focused narrowly on straightforward UK SME statutory
-audits. The long-term ambition is broader financial work infrastructure, but
-do not build speculative future products into the current application.
+Stack: TypeScript, SvelteKit 3 (Svelte 5 runes, remote functions), Bun, PostgreSQL 18,
+Drizzle, Zod 4. Package manager: bun.
 
 ## Product principles
 
-- Audit is modelled as structured state, not a hierarchy of documents.
-- The core audit graph is:
-  Financial statement area
-  -> assertion
-  -> risk
-  -> procedure
-  -> evidence
-  -> finding
-  -> conclusion
-  -> review/sign-off.
-- Workpapers are views over structured audit data; they are not the primary
-  domain model.
-- Every consequential audit action must be attributable and auditable.
-- Human auditors remain responsible for professional judgement.
-- AI may suggest, summarise and draft; it must not silently make audit decisions.
-- Prefer explicit domain objects over generic JSON blobs.
-- Prefer simple implementations over speculative abstraction.
-- Build only for current V1 requirements unless explicitly asked otherwise.
+- An audit is structured data, not a pile of documents. Workpapers are views over that data.
+- The core audit graph: financial statement area → assertion → risk → procedure →
+  evidence → finding → conclusion → review/sign-off.
+- Every consequential action must be attributable and audited.
+- Human auditors own professional judgement. AI may suggest, summarise and draft; it
+  never silently makes audit decisions.
+- Prefer explicit domain objects over generic JSON (audit event details are the
+  documented exception).
+- Prefer simple code over speculative abstraction. Build only what V1 needs now.
 
-## V1 ICP
+## Who V1 is for
 
-Independent UK accounting/audit firms performing straightforward private
-company SME audits.
+Independent UK audit/accounting firms of roughly 10–100 staff with meaningful
+statutory audit volume, currently on Caseware, IRIS or similar, where partners make
+the buying decision and are unhappy with legacy workflow and usability.
 
-Initial target firms:
-- roughly 10-100 audit/accounting staff
-- meaningful annual statutory audit volume
-- currently using products such as Caseware, IRIS or similar
-- partner-led buying process
-- dissatisfied with legacy workflow, usability or efficiency
+Not for V1: PIE or listed audits, complex groups, pensions, public sector,
+specialist charities, multinational networks.
 
-Do not optimise V1 for:
-- PIE audits
-- listed companies
-- complex group audits
-- pensions
-- public sector
-- specialist charity audits
-- multinational audit networks
+## Domain hierarchy
 
-See `docs/product.md` for the product definition and scope.
+Organisation group (optional, nestable) → Firm → Client → Entity → Engagement →
+Reporting period. Users have direct memberships; owning a group never grants access
+to its firms.
 
-## Domain
+## Read before changing
 
-The primary hierarchy is:
+| Area                                                                                  | Doc                               |
+| ------------------------------------------------------------------------------------- | --------------------------------- |
+| Scope, ICP, non-goals                                                                 | `docs/product.md`                 |
+| Audit semantics, risks/procedures, methodology, engagement state                      | `docs/domain.md`                  |
+| Engagement stages and UX flow                                                         | `docs/workflows.md`, `docs/ui.md` |
+| Code layout, patterns, services, access checks, persistence, testing                  | `docs/architecture.md`            |
+| Auth, authorisation, tenant isolation, uploads, AI calls, audit logs, retention       | `docs/security.md`                |
+| External APIs and accounting data (map into our model; never adopt a vendor's schema) | `docs/integrations.md`            |
+| AI features                                                                           | `docs/ai-product-stance.md`       |
+| Deployment, operator commands, monitoring                                             | `docs/operations.md`              |
+| Personal data and retention                                                           | `docs/privacy.md`                 |
 
-OrganisationGroup (optional)
--> Firm
--> Office/Team
--> Client
--> Entity
--> Engagement
--> Period
+Durable decisions: `docs/decisions/`. Plans for large changes: `docs/plans/active/`.
 
-The core engagement model is documented in `docs/domain.md`.
+## Code in brief
 
-For changes affecting audit semantics, risk/procedure relationships,
-methodology or engagement state, read `docs/domain.md` first.
-
-For engagement UX or stage progression, read `docs/workflows.md`.
-
-## Architecture
-
-Read `docs/architecture.md` before changing:
-- service boundaries
-- tenancy
-- persistence architecture
-- authentication/authorisation
-- file storage
-- audit/event logging
-
-Do not introduce a new major framework, service or infrastructure dependency
-without an explicit reason.
-
-## Integrations
-
-Read `docs/integrations.md` when working with external APIs or accounting data.
-
-External systems must map into Lines' canonical domain model.
-Never allow an external vendor's schema to become Lines' internal schema.
+- Services in `src/server/modules/<module>/*.service.ts` are plain factories taking
+  `(db, config)`; they never import SvelteKit. Remote functions are thin: validate
+  with Zod, get the actor from the session, call one service method.
+- Put remote functions next to their page (`routes/(group)/<page>/<name>.remote.ts`);
+  use `src/lib/remotes/` only when several routes share them.
+- Every service method checks access first (`tenancy-access.ts`,
+  `engagement-access.ts`), then filters queries by the checked firm/engagement.
+- Every consequential change calls `recordEvent(tx, ...)` in the same transaction.
+- Expected failures throw a coded `BusinessError` from `src/server/errors.ts`; add
+  new codes there. `hooks.server.ts` turns them into responses.
+- Write for a junior–intermediate engineer: plain English names and comments, short
+  functions, obvious control flow.
 
 ## Security
 
-This product will process highly sensitive financial and audit data.
+This app will hold highly sensitive financial data. Never commit secrets or real
+client data; use synthetic data in development and tests.
 
-Read `docs/security.md` before changing:
-- authentication
-- authorisation
-- tenant isolation
-- uploads/downloads
-- external AI calls
-- audit logs
-- retention/deletion
+## Workflow
 
-Never commit secrets or real client data.
+Before implementing: read the relevant code and only the docs relevant to the task;
+keep existing patterns unless there is a good reason to change them.
 
-Use synthetic data for development and tests.
+After changes: `bun run format`, `bun run check`, `bun run lint`, the relevant tests
+(`test:integration`, `test:components`, `test:e2e`) and `bun run build`. Review the diff. Do
+not claim a task is complete while validation fails.
 
-## Engineering workflow
+When a domain or architecture decision changes, update the matching doc in the same
+change. Docs describe current truth, not history.
 
-Before implementing:
-1. Inspect the relevant existing code.
-2. Read only the docs relevant to the task.
-3. Preserve existing patterns unless there is a good reason to change them.
+## Svelte MCP
 
-For substantial features or architectural changes, create/update a plan under
-`docs/plans/active/`.
-
-After changes:
-- run formatting
-- run type checking
-- run relevant tests
-- run the application/build where appropriate
-- review the diff for accidental changes
-
-Do not claim a task is complete if validation is failing.
-
-## Documentation
-
-When a domain or architectural decision materially changes, update the
-corresponding documentation in the same change.
-
-Important durable decisions should get a short ADR in `docs/decisions/`.
-
-Documentation describes current truth, not historical discussion.
+When available, use the Svelte MCP tools: `list-sections` and then `get-documentation`
+for Svelte/SvelteKit questions, and `svelte-autofixer` on Svelte code you write (repeat
+until it reports no issues). Offer a `playground-link` only for code not written to
+project files.

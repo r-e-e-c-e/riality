@@ -4,11 +4,19 @@
 
 Lines is multi-tenant.
 
-OrganisationGroup
+```text
+OrganisationGroup (optional, may contain nested OrganisationGroups)
   -> Firm
-      -> Office
-      -> Team
-      -> User
+      -> Office / Team
+
+User -> explicit memberships in one or more groups or firms
+```
+
+Groups and firms are stored as `tenant` nodes with stable IDs and nullable
+parent IDs. Each firm also has a unique handle, its workspace address
+(`lines.ws/{handle}`); handles can change, IDs never do. Only groups contain tenant nodes; offices/teams belong to a firm
+and are not security tenants. Groups can form multiple levels for accounting
+roll-ups. An ownership hierarchy is distinct from a client's consolidated audit.
 
 A Firm may exist without an OrganisationGroup.
 
@@ -17,7 +25,17 @@ This is intentional.
 A standalone accounting firm must be able to become part of a larger group
 later without migrating its audit history.
 
-Groups are not an important V1 user-facing feature.
+Acquisitions change parent relationships without changing firm tenant IDs,
+memberships or audit history. Audit resources belong to a firm tenant, never
+to its current group or hierarchy path.
+
+Users have direct owner/admin/member memberships. Parent ownership does not
+implicitly grant access to a child's audit data. Transfers require explicit
+ownership in the node and affected parent groups; membership grants remain
+deliberate. Tenant administration roles are separate from engagement audit roles.
+
+Group support is part of the tenancy foundation. Broader group-management and
+group-audit workflows remain outside V1.
 
 ## Client model
 
@@ -39,6 +57,18 @@ for a particular reporting period.
 V1 engagement type:
 
 STATUTORY_AUDIT
+
+### Built so far (engagement setup)
+
+- A reporting period belongs to an entity; an engagement references that period.
+  One statutory audit per entity and exact date range.
+- Engagements stay in SETUP. Creating one is not acceptance or professional approval.
+- Firm owners/admins create clients, entities and engagements and manage teams.
+- A team member is an auditor, manager or partner. These are responsibilities, not
+  tenant roles and not sign-off authority. The creator becomes manager.
+- Opening an engagement needs current firm membership and a team assignment, even for
+  owners. Removing someone from the firm removes their assignments; rejoining does
+  not restore them.
 
 ## Engagement spine
 
@@ -223,9 +253,11 @@ performed.
 
 ## Audit trail
 
-All consequential changes must produce attributable audit history.
+All consequential changes must produce attributable audit history. The implemented
+action list, with each action's typed details, is `AuditDetails` in
+`src/server/modules/audit/audit-event.entity.ts`.
 
-Important events include:
+Future events will include:
 
 engagement.created
 engagement.accepted

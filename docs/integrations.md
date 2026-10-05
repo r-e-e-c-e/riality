@@ -73,6 +73,12 @@ Needed for:
 - authentication
 - eventually client evidence requests
 
+### Password breach screening
+
+Public deployments check new passwords against the Have I Been Pwned range API
+(`identity/passwords.ts`), sending only a five-character hash prefix. Development and
+tests never call it. See `security.md`.
+
 ### AI provider
 
 AI access should be behind an application-owned abstraction.

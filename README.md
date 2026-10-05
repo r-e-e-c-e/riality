@@ -1,54 +1,50 @@
-# sv
+# Lines
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Cloud audit software for straightforward UK SME statutory audits.
 
-## Creating a project
+Start with [product](docs/product.md), [domain](docs/domain.md) and
+[architecture](docs/architecture.md). Security controls are in
+[security](docs/security.md); running it is covered in [operations](docs/operations.md).
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Local development
 
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+Needs Bun 1.4+ and Docker (for PostgreSQL 18).
 
 ```sh
-# recreate this project
-bun x sv@1.1.0 create --template minimal --types ts --add experimental="features:async,remoteFunctions" prettier eslint vitest="usages:unit,component" playwright="demo:no" sveltekit-adapter="adapter:node" drizzle="database:postgresql+postgresql:postgres.js+docker:yes" ai-tools="ide:claude-code,vscode+delivery:plugin+tools:mcp,svelte-code-writer,svelte-core-bestpractices,svelte-file-editor+mcpSetup:local" enhanced-img --install bun riality
+bun install
+cp .env.example .env
+bun run auth:key          # paste the output into AUTH_ENCRYPTION_KEY in .env
+bun run db:reset --seed   # starts the Docker database, applies migrations, adds test accounts
+bun run dev
 ```
 
-## Adding features
+Sign in as `group.owner@example.test` (password in `src/server/db/seed-data.ts`); you
+land on the Baldwyn & Co workspace at `/baldwyn-co`. Or sign up at `/signup`. Emails
+are written to `.local/mail/`, not sent.
 
-Add features to your project with `sv add`:
+| Command                     | What it does                                    |
+| --------------------------- | ----------------------------------------------- |
+| `bun run db:generate`       | Create a migration after changing `*.entity.ts` |
+| `bun run db:migrate`        | Apply migrations                                |
+| `bun run db:reset [--seed]` | Wipe the local database and re-apply migrations |
+| `bun run db:seed`           | Add the synthetic test accounts and firms       |
+| `bun run db:studio`         | Browse the database                             |
+
+## Checks
 
 ```sh
-npx sv add
+bun run format && bun run check && bun run lint
+bun run test:components --run   # Svelte component tests (browser)
+bun run test:integration   # needs TEST_DATABASE_URL (see .env.example)
+bun run test:e2e           # first time: bun x playwright install chromium
+bun run build
 ```
 
-For example, to add Tailwind CSS:
+For integration and e2e tests, create a disposable database whose name ends in `_test`
+(for example `lines_test` in the Docker database) and set `TEST_DATABASE_URL`.
 
-```sh
-npx sv add tailwindcss
-```
+## Production
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
+See [operations](docs/operations.md). In short: an HTTPS `APP_ORIGIN` at build and
+runtime, Resend for email, a secret-managed encryption key, separate migration and
+runtime database roles, and a TLS proxy. MFA is mandatory.

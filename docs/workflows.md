@@ -19,6 +19,12 @@ professional workflow requires it.
 
 ## 1. Setup and acceptance
 
+Built so far: firm owners/admins create a client, its legal entity, and a
+statutory-audit engagement for a reporting period, then assign the team. Assigned
+members can open their engagements. Not built yet: acceptance/continuance,
+independence checks and methodology selection, so engagements stay in SETUP.
+See `ui.md` for screens.
+
 User:
 
 - creates/selects client
