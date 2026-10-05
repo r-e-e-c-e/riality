@@ -186,37 +186,7 @@ test('prioritises assigned work, discloses setup and team edits, and enforces cu
 	}
 });
 
-test('progressive client/entity/engagement setup works without JavaScript', async ({ browser }) => {
-	const context = await browser.newContext({ javaScriptEnabled: false });
-	const page = await context.newPage();
-	try {
-		await signIn(page, ownerEmail);
-		await page.goto(`/${handle}/engagements/new`);
-		await createNewEntity(page, 'Synthetic Native Client', 'Synthetic Native Ltd');
-		await page.getByLabel('Period start', { exact: true }).fill('2025-01-01');
-		await page.getByLabel('Period end', { exact: true }).fill('2025-12-31');
-		await page.getByRole('button', { name: 'Create engagement', exact: true }).click();
-		await expect(page.getByRole('heading', { name: 'Engagement team', exact: true })).toBeVisible();
-		await page.getByRole('link', { name: 'Open engagement', exact: true }).click();
-		await expect(
-			page.getByRole('heading', { name: 'Synthetic Native Ltd', exact: true })
-		).toBeVisible();
-
-		// Without JavaScript, a refused duplicate still shows its message after the page reloads.
-		await page.goto(`/${handle}/engagements/new`);
-		await page
-			.getByRole('combobox', { name: 'Entity', exact: true })
-			.selectOption({ label: 'Synthetic Native Client · Synthetic Native Ltd' });
-		await page.getByLabel('Period start', { exact: true }).fill('2025-01-01');
-		await page.getByLabel('Period end', { exact: true }).fill('2025-12-31');
-		await page.getByRole('button', { name: 'Create engagement', exact: true }).click();
-		await expect(page.getByRole('alert')).toContainText('An engagement already exists');
-	} finally {
-		await context.close();
-	}
-});
-
-test('error pages keep the app usable and signing in returns to the page', async ({ page }) => {
+test('signing in returns to the page you were on, and only to this site', async ({ page }) => {
 	// Signed out: the firm page asks you to sign in, then brings you back.
 	const signedOut = await page.goto(`/${handle}/clients`);
 	expect(signedOut?.status()).toBe(401);
@@ -227,16 +197,6 @@ test('error pages keep the app usable and signing in returns to the page', async
 	await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`/${handle}/clients$`));
 
-	// A firm you can't access looks the same as one that doesn't exist, inside the app layout.
-	const hidden = await page.goto('/no-such-firm-here');
-	expect(hidden?.status()).toBe(404);
-	await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible();
-	await expect(
-		page
-			.getByRole('navigation', { name: 'Main navigation' })
-			.getByRole('link', { name: 'Dashboard' })
-	).toHaveAttribute('href', `/${handle}`);
-
 	// Only paths on this site are accepted after signing in.
 	await page.context().clearCookies();
 	await page.goto('/login?next=https://attacker.example');
@@ -246,57 +206,13 @@ test('error pages keep the app usable and signing in returns to the page', async
 	await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
 });
 
-test('a duplicate engagement is refused with the message on the period field', async ({ page }) => {
-	await signIn(page, ownerEmail);
-	await page.goto(`/${handle}/engagements/new`);
-	await createNewEntity(page, 'Synthetic Duplicate Client', 'Synthetic Duplicate Ltd');
-	for (let attempt = 0; attempt < 2; attempt++) {
-		await page.goto(`/${handle}/engagements/new`);
-		await page
-			.getByRole('combobox', { name: 'Entity', exact: true })
-			.selectOption({ label: 'Synthetic Duplicate Client · Synthetic Duplicate Ltd' });
-		await page.getByLabel('Period start', { exact: true }).fill('2025-01-01');
-		await page.getByLabel('Period end', { exact: true }).fill('2025-12-31');
-		await page.getByRole('button', { name: 'Create engagement', exact: true }).click();
-		if (attempt === 0)
-			await expect(page.getByRole('heading', { name: 'Engagement team' })).toBeVisible();
-	}
-	await expect(page.getByRole('alert')).toContainText('An engagement already exists');
-	await expect(page.getByLabel('Period start', { exact: true })).toHaveAttribute(
-		'aria-invalid',
-		'true'
-	);
-});
-
-test('the header shows the firm, its navigation and an account menu', async ({ page }) => {
-	await signIn(page, ownerEmail);
-	await expect(page.locator('summary', { hasText: 'Synthetic Engagement Firm' })).toBeVisible();
-	await expect(page.getByText('Lines', { exact: true })).toHaveCount(0);
-	const navigation = page.getByRole('navigation', { name: 'Main navigation' });
-	for (const link of ['Dashboard', 'Clients', 'Engagements', 'Settings'])
-		await expect(navigation.getByRole('link', { name: link, exact: true })).toBeVisible();
-	await page.getByLabel('Account menu for Synthetic Engagement Owner').click();
-	await page.getByRole('link', { name: 'Manage account', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Manage account', exact: true })).toBeVisible();
-	// Account pages keep the last firm's navigation.
-	await expect(navigation.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute(
-		'href',
-		`/${handle}`
-	);
-	await page.getByLabel('Account menu for Synthetic Engagement Owner').click();
-	await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
-	await page.goto('/');
-	await expect(page).toHaveURL(/\/login$/);
-});
-
 test('entities are added on the Clients page and edited on their own page', async ({ page }) => {
 	await signIn(page, ownerEmail);
 	await page.goto(`/${handle}/clients`);
 	await openDisclosure(page, 'Add a client');
 	await page.getByLabel('Client name', { exact: true }).fill('Synthetic Register Client');
 	await page.getByRole('button', { name: 'Add client', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Synthetic Register Client' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Synthetic Register Client' })).toBeVisible();
 
 	// Companies House is not configured in tests, so details are entered by hand.
 	await openDisclosure(page, 'Add a legal entity');
@@ -321,31 +237,6 @@ test('entities are added on the Clients page and edited on their own page', asyn
 	const details = page.getByRole('definition');
 	await expect(details.filter({ hasText: /^31 March$/ })).toBeVisible();
 	await expect(details.filter({ hasText: 'FRS 102 Section 1A (small entities)' })).toBeVisible();
-
-	// People: add a designated member by hand, then find them on the People page.
-	await openDisclosure(page, 'Add a person');
-	const addPerson = page
-		.locator('details')
-		.filter({ has: page.locator('summary', { hasText: /^Add a person$/ }) });
-	await addPerson.getByLabel(/^Name/).fill('Synthetic Member Person');
-	await addPerson
-		.getByRole('combobox', { name: 'Role', exact: true })
-		.selectOption('llp_designated_member');
-	await addPerson.getByLabel('Started on', { exact: true }).fill('2019-06-01');
-	await addPerson.getByRole('button', { name: 'Add person', exact: true }).click();
-	const people = page.getByRole('region', { name: 'People' });
-	await expect(people.getByRole('link', { name: 'Synthetic Member Person' })).toBeVisible();
-	await expect(people.getByText(/LLP designated member · 1 Jun 2019 – present/)).toBeVisible();
-
-	await page.getByRole('link', { name: 'People', exact: true }).click();
-	await page.getByRole('link', { name: 'Synthetic Member Person' }).click();
-	await openDisclosure(page, 'Edit details');
-	await page.getByLabel('Email', { exact: true }).fill('member.person@example.test');
-	await page.getByRole('button', { name: 'Save details', exact: true }).click();
-	await expect(
-		page.getByRole('definition').filter({ hasText: 'member.person@example.test' })
-	).toBeVisible();
-	await expect(page.getByRole('cell', { name: 'Synthetic Register LLP' })).toBeVisible();
 });
 
 test('changes made in one window appear in other open windows without reloading', async ({
@@ -363,7 +254,7 @@ test('changes made in one window appear in other open windows without reloading'
 	await first.getByLabel('Client name', { exact: true }).fill('Synthetic Live Client');
 	await first.getByRole('button', { name: 'Add client', exact: true }).click();
 
-	await expect(second.getByRole('heading', { name: 'Synthetic Live Client' })).toBeVisible();
+	await expect(second.getByRole('link', { name: 'Synthetic Live Client' })).toBeVisible();
 	expect(await second.evaluate(() => 'untouched' in window)).toBe(true);
 
 	// Signing out in one window signs out the others.

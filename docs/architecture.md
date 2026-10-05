@@ -269,7 +269,14 @@ Test behaviour that matters, not lines of code. One tool per job:
 - **Component tests** run in real Chromium with the app's Vite/Svelte setup. Write them
   only for components with real logic (for example a mapping grid or risk matrix); simple
   forms and pages are covered by Playwright. No Storybook until there is a design system.
-- **E2E tests** cover a few important journeys, including without JavaScript.
+- **E2E tests** cover only critical journeys and browser-only security: signing in and
+  switching firms, signup with MFA, forms without JavaScript, cross-origin and caching
+  rules, safe return paths, client to entity to engagement, and live updates across
+  windows. Do not add E2E tests for UI details while the UI is still changing.
+
+While building the MVP: every access rule and every audited change gets a service test;
+pages and UI details do not need tests of their own. Keep the suite fast (seconds, not
+minutes) so it runs on every change.
 
 Use synthetic data only. Test database names must end in `_test`.
 

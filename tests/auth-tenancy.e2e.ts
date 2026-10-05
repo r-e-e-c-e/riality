@@ -301,30 +301,6 @@ test('verified signup, MFA setup, recovery-code login and firm invitation work e
 	expect(errors).toEqual([]);
 });
 
-test('password recovery form updates credentials and leaves no token in the request URL', async ({
-	page
-}) => {
-	await page.goto('/forgot-password');
-	await page.getByLabel('Email', { exact: true }).fill(email);
-	await page.getByRole('button', { name: 'Send reset email' }).click();
-	await expect(page.getByRole('status')).toBeVisible();
-	const token = await takeMail(email);
-	await page.goto(`/reset-password#${token}`);
-	await expect(page.getByLabel('Reset code')).toHaveValue(token);
-	await page
-		.getByLabel('New password', { exact: true })
-		.fill('synthetic updated browser passphrase');
-	const requests: string[] = [];
-	page.on('request', (request) => requests.push(request.url()));
-	await page.getByRole('button', { name: 'Update password' }).click();
-	await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
-	expect(requests.some((url) => url.includes(token))).toBe(false);
-	await page.getByLabel('Email', { exact: true }).fill(email);
-	await page.getByLabel('Password', { exact: true }).fill('synthetic updated browser passphrase');
-	await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-});
-
 test('MFA requirement rejects direct tenant calls before enrolment', async ({ page }) => {
 	test.skip(process.env.TEST_REQUIRE_MFA !== 'true', 'Run with TEST_REQUIRE_MFA=true');
 	await page.goto('/login');

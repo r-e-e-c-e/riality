@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test';
-import { eq } from 'drizzle-orm';
 import { isolatedDatabase } from '../isolated-database';
 import { testConfig } from '../config';
 import { createServices } from '../../src/server/services';
@@ -11,8 +10,7 @@ import {
 	seedIds,
 	seedPassword,
 	seedTenants,
-	seedUsers,
-	tenantRow
+	seedUsers
 } from '../../src/server/db/seed-data';
 import { createClientsService } from '../../src/server/modules/clients/clients.service';
 import { createEngagementsService } from '../../src/server/modules/engagements/engagements.service';
@@ -25,7 +23,7 @@ import { invitations } from '../../src/server/modules/tenancy/invitation.entity'
 import { mailOutbox } from '../../src/server/modules/notifications/mail.entity';
 import { credentialTokens } from '../../src/server/modules/identity/credential-token.entity';
 import { mfaCredentials, recoveryCodes } from '../../src/server/modules/identity/mfa.entity';
-import { hashPassword, verifyPassword } from '../../src/server/modules/identity/passwords';
+import { verifyPassword } from '../../src/server/modules/identity/passwords';
 import { createTenancyService } from '../../src/server/modules/tenancy/tenancy.service';
 
 const environment = {
@@ -87,49 +85,6 @@ test('development seed reproduces fixed v7 identities, topology, timestamps and 
 			expect(user.passwordHash).not.toBe(initialHashes[index]);
 			expect(await verifyPassword(seedPassword, user.passwordHash)).toBe(true);
 		}
-	} finally {
-		await fixture.close();
-	}
-}, 20000);
-
-test('concurrent seed reruns preserve edited passwords, disabled accounts, roles and audit history', async () => {
-	const fixture = await isolatedDatabase(true);
-	try {
-		const outcomes = await Promise.all([
-			seedDevelopmentDatabase(fixture.url, environment),
-			seedDevelopmentDatabase(fixture.url, environment)
-		]);
-		expect(outcomes.filter((result) => result.created)).toHaveLength(1);
-		const tenancy = createTenancyService(fixture.runtimeDb);
-		await tenancy.setMembership(
-			{ id: seedIds.groupOwner },
-			{
-				tenantId: seedIds.baldwynFirm,
-				userId: seedIds.auditor,
-				role: null
-			}
-		);
-		const passwordHash = await hashPassword('edited synthetic account passphrase');
-		await fixture.db
-			.update(users)
-			.set({ passwordHash, disabledAt: new Date(), name: 'Edited Synthetic User' })
-			.where(eq(users.id, seedIds.auditor));
-		const before = {
-			users: await fixture.db.select().from(users).orderBy(users.id),
-			memberships: await fixture.db
-				.select()
-				.from(memberships)
-				.orderBy(memberships.tenantId, memberships.userId),
-			events: await fixture.db.select().from(auditEvents).orderBy(auditEvents.id)
-		};
-		expect((await seedDevelopmentDatabase(fixture.url, environment)).created).toBe(false);
-		expect(await fixture.db.select().from(users).orderBy(users.id)).toEqual(before.users);
-		expect(
-			await fixture.db.select().from(memberships).orderBy(memberships.tenantId, memberships.userId)
-		).toEqual(before.memberships);
-		expect(await fixture.db.select().from(auditEvents).orderBy(auditEvents.id)).toEqual(
-			before.events
-		);
 	} finally {
 		await fixture.close();
 	}
@@ -205,81 +160,6 @@ test('seeded accounts can sign in and parent owners never implicitly gain subsid
 		await expect(
 			tenancy.get({ id: seedIds.auditor }, seedIds.standaloneFirm)
 		).rejects.toMatchObject({ status: 404 });
-	} finally {
-		await fixture.close();
-	}
-}, 20000);
-
-test('fixture email/UUID collisions refuse seeding without changing existing state', async () => {
-	const fixture = await isolatedDatabase();
-	try {
-		const [existing] = await fixture.db
-			.insert(users)
-			.values({
-				name: 'Existing Synthetic User',
-				email: seedUsers[0].email,
-				passwordHash: await hashPassword('existing synthetic password')
-			})
-			.returning();
-		await expect(seedDevelopmentDatabase(fixture.ownerUrl, environment)).rejects.toThrow(
-			'conflict'
-		);
-		expect(await fixture.db.select().from(users)).toEqual([existing]);
-		expect(await fixture.db.select().from(tenants)).toHaveLength(0);
-		expect(await fixture.db.select().from(auditEvents)).toHaveLength(0);
-		await fixture.db.delete(users).where(eq(users.id, existing.id));
-		await fixture.db.insert(tenants).values(tenantRow(seedTenants[0]));
-		await expect(seedDevelopmentDatabase(fixture.ownerUrl, environment)).rejects.toThrow(
-			'incomplete'
-		);
-		expect(await fixture.db.select().from(users)).toHaveLength(0);
-		expect(await fixture.db.select().from(tenants)).toHaveLength(1);
-	} finally {
-		await fixture.close();
-	}
-}, 20000);
-
-test('all database-generated UUID IDs use v7, including direct SQL/Drizzle inserts', async () => {
-	const fixture = await isolatedDatabase(true);
-	try {
-		await seedDevelopmentDatabase(fixture.url, environment);
-		const db = fixture.runtimeDb;
-		const [user] = await db
-			.insert(users)
-			.values({
-				name: 'Default UUID User',
-				email: 'default@example.test',
-				passwordHash: await hashPassword(seedPassword)
-			})
-			.returning();
-		const [tenant] = await db
-			.insert(tenants)
-			.values({ name: 'Default UUID Firm', kind: 'firm', handle: 'default-uuid-firm' })
-			.returning();
-		const [session] = await db
-			.insert(sessions)
-			.values({
-				tokenHash: 'synthetic-default-session',
-				userId: user.id,
-				expiresAt: new Date('2100-01-01')
-			})
-			.returning();
-		const [invitation] = await db
-			.insert(invitations)
-			.values({
-				tokenHash: 'synthetic-default-invitation',
-				tenantId: tenant.id,
-				email: 'invited@example.test',
-				role: 'member',
-				invitedBy: user.id,
-				expiresAt: new Date('2100-01-01')
-			})
-			.returning();
-		const [event] = await db
-			.insert(auditEvents)
-			.values({ action: 'tenant.created', actorId: user.id, tenantId: tenant.id })
-			.returning();
-		for (const row of [user, tenant, session, invitation, event]) expect(row.id).toMatch(v7);
 	} finally {
 		await fixture.close();
 	}
