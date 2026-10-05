@@ -223,6 +223,8 @@ test('entities are added on the Clients page and edited on their own page', asyn
 	await page.getByLabel(/^Name/).fill('Synthetic Register LLP');
 	await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('llp');
 	await page.getByRole('button', { name: 'Add entity', exact: true }).click();
+	// Entities are reached through their client's page.
+	await page.getByRole('link', { name: 'Synthetic Register Client' }).click();
 	await page.getByRole('link', { name: 'Synthetic Register LLP' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Synthetic Register LLP' })).toBeVisible();

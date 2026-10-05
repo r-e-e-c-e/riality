@@ -9,6 +9,7 @@
 		searchCompanies
 	} from '#lib/remotes/clients.remote.js';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
+	import FilterChips from '#lib/components/FilterChips.svelte';
 	import { CLIENT_STATUSES, deadlineWarning, isReviewDue } from '#lib/clients.js';
 	import { COMPANY_STATUSES, ENTITY_TYPES, keysOf } from '#lib/companies.js';
 	import { formatDate, formatYearEnd } from '#lib/format.js';
@@ -24,21 +25,55 @@
 		() => getClientDirectory(workspace.firm.id).refresh()
 	);
 
-	// Finding clients: by text, status and "mine", sorted by name or deadline.
+	// Quick views: the current book, my clients, then anything needing attention.
 	type Client = (typeof directory)[number];
+	const isCurrent = (client: Client) => client.status !== 'former';
+	const views = {
+		current: { label: 'Current', matches: isCurrent },
+		mine: {
+			label: 'Mine',
+			matches: (client: Client) =>
+				client.partner?.id === header?.user.id ||
+				client.manager?.id === header?.user.id ||
+				client.entities.some((entity) => entity.engagement?.onTeam)
+		},
+		dueSoon: {
+			label: 'Accounts due soon',
+			matches: (client: Client) => isCurrent(client) && !!deadlineWarning(client.nextAccountsDue)
+		},
+		reviewDue: {
+			label: 'Review due',
+			matches: (client: Client) => isCurrent(client) && isReviewDue(client.lastReviewedOn)
+		},
+		highRisk: {
+			label: 'High risk',
+			matches: (client: Client) => isCurrent(client) && client.riskRating === 'high'
+		},
+		noPartner: {
+			label: 'No partner',
+			matches: (client: Client) => isCurrent(client) && !client.partner
+		},
+		prospect: { label: 'Prospects', matches: (client: Client) => client.status === 'prospect' },
+		former: { label: 'Former', matches: (client: Client) => client.status === 'former' }
+	};
+	type View = keyof typeof views;
+	// Shown even when empty; the rest only when they have clients in them.
+	const alwaysShown: View[] = ['current', 'mine'];
+	// Members only see their own clients, so attention views are for owners and admins.
+	const managerOnly: View[] = ['reviewDue', 'highRisk', 'noPartner', 'prospect', 'former'];
+	let view = $state<View>('current');
 	let text = $state('');
-	let show = $state<'current' | 'all' | keyof typeof CLIENT_STATUSES>('current');
-	let onlyMine = $state(false);
-	let sortBy = $state<'name' | 'deadline'>('name');
 
-	function isMine(client: Client) {
-		const me = header?.user.id;
-		return (
-			client.partner?.id === me ||
-			client.manager?.id === me ||
-			client.entities.some((entity) => entity.engagement?.onTeam)
-		);
-	}
+	const viewOptions = $derived(
+		(Object.keys(views) as View[])
+			.filter((key) => workspace.canManage || !managerOnly.includes(key))
+			.map((key) => ({
+				value: key,
+				label: views[key].label,
+				count: directory.filter(views[key].matches).length
+			}))
+			.filter((option) => alwaysShown.includes(option.value) || option.count > 0)
+	);
 	function matchesText(client: Client) {
 		const wanted = text.trim().toLowerCase();
 		const searchable = [
@@ -48,20 +83,24 @@
 		];
 		return searchable.some((value) => value?.toLowerCase().includes(wanted));
 	}
-	function hasStatus(client: Client) {
-		if (show === 'all') return true;
-		if (show === 'current') return client.status !== 'former';
-		return client.status === show;
-	}
 	const byDeadline = (a: Client, b: Client) =>
 		(a.nextAccountsDue ?? '9999').localeCompare(b.nextAccountsDue ?? '9999');
-	const matching = $derived(
-		directory.filter(
-			(client) => hasStatus(client) && (!onlyMine || isMine(client)) && matchesText(client)
-		)
-	);
-	// The list arrives sorted by name.
-	const shown = $derived(sortBy === 'deadline' ? matching.toSorted(byDeadline) : matching);
+	const matching = $derived(directory.filter((c) => views[view].matches(c) && matchesText(c)));
+	// The list arrives sorted by name; the deadline view puts the soonest first.
+	const shown = $derived(view === 'dueSoon' ? matching.toSorted(byDeadline) : matching);
+
+	/** "Year end 31 Dec", or every distinct year end when the entities differ. */
+	function yearEnds(client: Client) {
+		const dates = [
+			...new Set(
+				client.entities.flatMap(
+					(entity) => formatYearEnd(entity.yearEndDay, entity.yearEndMonth) ?? []
+				)
+			)
+		];
+		if (dates.length === 0) return null;
+		return `${dates.length === 1 ? 'Year end' : 'Year ends'} ${dates.join(', ')}`;
+	}
 
 	// Companies House search (needs JavaScript). Choosing a result fills the company number.
 	let searchText = $state('');
@@ -89,31 +128,16 @@
 </div>
 
 {#if directory.length}
-	<div class="filters" role="search">
-		<label
-			>Find<input
+	<div class="filters">
+		<FilterChips label="Show" options={viewOptions} bind:value={view} />
+		<label class="filter-search"
+			><span class="visually-hidden">Find a client</span><input
 				type="search"
 				bind:value={text}
-				placeholder="Client, entity, company number or contact"
+				placeholder="Find a client, entity or contact"
 			/></label
 		>
-		<label
-			>Show<select bind:value={show}
-				><option value="current">Current clients</option
-				>{#each keysOf(CLIENT_STATUSES) as status (status)}<option value={status}
-						>{CLIENT_STATUSES[status]}</option
-					>{/each}<option value="all">All</option></select
-			></label
-		>
-		<label
-			>Sort by<select bind:value={sortBy}
-				><option value="name">Name</option><option value="deadline">Next deadline</option></select
-			></label
-		>
-		<label class="checkbox"><input type="checkbox" bind:checked={onlyMine} /> Only my clients</label
-		>
 	</div>
-	<p class="muted" role="status">Showing {shown.length} of {directory.length} clients.</p>
 
 	<div class="table-scroll">
 		<table class="client-table">
@@ -121,13 +145,14 @@
 				<tr>
 					<th scope="col">Client</th>
 					<th scope="col">Next accounts due</th>
-					<th scope="col">Partner and manager</th>
-					<th scope="col">Key contact</th>
+					<th scope="col" class="desktop-context">Partner and manager</th>
+					<th scope="col" class="desktop-context">Key contact</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each shown as client (client.id)}
 					{@const warning = deadlineWarning(client.nextAccountsDue)}
+					{@const summary = yearEnds(client)}
 					<tr>
 						<td>
 							<a class="primary-link" href={`${base}/clients/${client.id}`}>{client.name}</a>
@@ -135,28 +160,14 @@
 									>{CLIENT_STATUSES[client.status]}</span
 								>{/if}
 							{#if client.riskRating === 'high'}<span class="badge warning">High risk</span>{/if}
-							{#if workspace.canManage && client.status !== 'former' && isReviewDue(client.lastReviewedOn)}<span
+							{#if workspace.canManage && isCurrent(client) && isReviewDue(client.lastReviewedOn)}<span
 									class="badge warning">Review due</span
 								>{/if}
-							<ul class="entity-lines">
-								{#each client.entities as entity (entity.id)}
-									<li>
-										<a href={`${base}/entities/${entity.id}`}>{entity.name}</a>
-										{#if entity.companyNumber}· {entity.companyNumber}{/if}
-										{#if entity.companyStatus && entity.companyStatus !== 'active'}·
-											{COMPANY_STATUSES[entity.companyStatus]}{/if}
-										{#if formatYearEnd(entity.yearEndDay, entity.yearEndMonth)}· Year end {formatYearEnd(
-												entity.yearEndDay,
-												entity.yearEndMonth
-											)}{/if}
-										{#if entity.engagement}·
-											{#if entity.engagement.onTeam}<a
-													href={`${base}/engagements/${entity.engagement.id}`}
-													>Audit to {formatDate(entity.engagement.periodEnd)}</a
-												>{:else}Audit to {formatDate(entity.engagement.periodEnd)}{/if}{/if}
-									</li>
-								{:else}<li>No legal entities yet.</li>{/each}
-							</ul>
+							<span class="cell-detail"
+								>{client.entities.map((entity) => entity.name).join(', ') ||
+									'No legal entities yet'}</span
+							>
+							{#if summary}<span class="cell-detail">{summary}</span>{/if}
 						</td>
 						<td class="nowrap">
 							{client.nextAccountsDue ? formatDate(client.nextAccountsDue) : '—'}
@@ -164,23 +175,23 @@
 									>{warning.text}</span
 								>{/if}
 						</td>
-						<td>
-							{client.partner?.name ?? 'No partner'}
+						<td class="desktop-context">
+							{#if client.partner}{client.partner.name}{:else}<span class="badge warning"
+									>No partner</span
+								>{/if}
 							{#if client.manager}<span class="cell-detail">{client.manager.name}</span>{/if}
 						</td>
-						<td>
+						<td class="desktop-context">
 							{#if client.keyContact}
 								{client.keyContact.name}
 								{#if client.keyContact.email}<a
 										class="cell-detail"
 										href={`mailto:${client.keyContact.email}`}>{client.keyContact.email}</a
 									>{/if}
-								{#if client.keyContact.phone}<a
-										class="cell-detail"
-										href={`tel:${client.keyContact.phone.replaceAll(' ', '')}`}
-										>{client.keyContact.phone}</a
+								{#if client.keyContact.phone}<span class="cell-detail"
+										>{client.keyContact.phone}</span
 									>{/if}
-							{:else}<span class="muted">—</span>{/if}
+							{:else}<span class="muted">Not chosen</span>{/if}
 						</td>
 					</tr>
 				{:else}

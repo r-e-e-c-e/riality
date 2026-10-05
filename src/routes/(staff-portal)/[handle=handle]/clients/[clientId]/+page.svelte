@@ -6,7 +6,7 @@
 	import { COMPANY_STATUSES, ENTITY_TYPES, keysOf } from '#lib/companies.js';
 	import { formatDate, formatYearEnd } from '#lib/format.js';
 	import { isFirmRecordChange, refreshOn } from '#lib/live-updates.svelte.js';
-	import { ENTITY_ROLES, isCurrentRole } from '#lib/people.js';
+	import { isCurrentRole, roleLabel } from '#lib/people.js';
 	import { getClient, updateClient } from './client.remote';
 
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
@@ -36,14 +36,11 @@
 			}))
 			.filter((person) => person.roles.length > 0)
 	);
-	function roleLabel(role: (typeof client.people)[number]['roles'][number]) {
-		const label =
-			role.role === 'psc'
-				? 'PSC'
-				: role.shareholdingPercent !== null
-					? `${role.shareholdingPercent}% shareholder`
-					: ENTITY_ROLES[role.role];
-		return isCurrentRole(role) ? label : `${label} (until ${formatDate(role.endedOn!)})`;
+	/** A role in a grid cell, with its end date if it has ended. */
+	function cellLabel(role: (typeof client.people)[number]['roles'][number]) {
+		return isCurrentRole(role)
+			? roleLabel(role)
+			: `${roleLabel(role)} (until ${formatDate(role.endedOn!)})`;
 	}
 	const deadline = $derived(deadlineWarning(client.nextAccountsDue));
 	const reviewDue = $derived(client.status !== 'former' && isReviewDue(client.lastReviewedOn));
@@ -185,7 +182,7 @@
 									{#if roles.length}
 										<ul>
 											{#each roles as role, index (index)}<li class:muted={!isCurrentRole(role)}>
-													{roleLabel(role)}
+													{cellLabel(role)}
 												</li>{/each}
 										</ul>
 									{:else}<span class="muted">—</span>{/if}

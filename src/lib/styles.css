@@ -622,15 +622,9 @@ details > :not(summary) {
 .filters {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: end;
+	align-items: center;
 	gap: 0.75rem 1rem;
-	margin-bottom: 0.5rem;
-}
-.filters label {
-	flex: 0 1 auto;
-}
-.filters label:first-child {
-	flex: 1 1 18rem;
+	margin-bottom: 1rem;
 }
 .checkbox {
 	display: flex;
@@ -659,4 +653,43 @@ details > :not(summary) {
 	margin: 0;
 	padding: 0;
 	list-style: none;
+}
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.chip {
+	padding: 0.4rem 0.8rem;
+	border: 1px solid #c9d5cf;
+	border-radius: 999px;
+	background: white;
+	color: inherit;
+	font-size: 0.9rem;
+}
+.chip[aria-pressed='true'] {
+	border-color: #2f5d50;
+	background: #2f5d50;
+	color: white;
+}
+.chip-count {
+	margin-left: 0.25rem;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.75;
+}
+.filter-search {
+	flex: 1 1 18rem;
+	margin-left: auto;
+	max-width: 26rem;
+}
+.role-lines {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 0.3rem;
+}
+.role-lines .muted {
+	margin-left: 0.4rem;
+	font-size: 0.9rem;
 }
