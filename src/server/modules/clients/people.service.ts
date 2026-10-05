@@ -286,10 +286,17 @@ export function createPeopleService(
 			await requireFirmAdmin(db, actor, id);
 			const rows = await db
 				.select({
-					person: { id: people.id, name: people.name, kind: people.kind, email: people.email },
+					person: {
+						id: people.id,
+						name: people.name,
+						kind: people.kind,
+						email: people.email,
+						phone: people.phone
+					},
 					role: {
 						role: entityRoles.role,
 						endedOn: entityRoles.endedOn,
+						shareholdingPercent: entityRoles.shareholdingPercent,
 						entityId: entities.id,
 						entityName: entities.name
 					}
@@ -310,6 +317,7 @@ export function createPeopleService(
 			type Role = {
 				role: EntityRoleKind;
 				endedOn: string | null;
+				shareholdingPercent: number | null;
 				entityId: string;
 				entityName: string;
 			};

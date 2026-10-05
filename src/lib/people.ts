@@ -39,3 +39,23 @@ export type ControlKind = keyof typeof CONTROL_KINDS;
 export function isCurrentRole(role: { endedOn: string | null }, today = new Date()) {
 	return !role.endedOn || role.endedOn >= today.toISOString().slice(0, 10);
 }
+
+/** A role in one line: "Director", "80% shareholder", "PSC". */
+export function roleLabel(role: { role: EntityRoleKind; shareholdingPercent: number | null }) {
+	if (role.role === 'psc') return 'PSC';
+	if (role.role === 'shareholder' && role.shareholdingPercent !== null)
+		return `${role.shareholdingPercent}% shareholder`;
+	return ENTITY_ROLES[role.role];
+}
+
+const roleOrder = Object.keys(ENTITY_ROLES);
+
+/** Someone's roles at one entity, in a fixed order: "Director · 80% shareholder · PSC". */
+export function summariseRoles(
+	roles: { role: EntityRoleKind; shareholdingPercent: number | null }[]
+) {
+	return roles
+		.toSorted((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role))
+		.map(roleLabel)
+		.join(' · ');
+}

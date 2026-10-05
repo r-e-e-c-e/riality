@@ -2,11 +2,13 @@
 	import { page } from '$app/state';
 	import { getWorkspace } from '#lib/remotes/workspace.remote.js';
 	import { getPeople } from '#lib/remotes/people.remote.js';
+	import FilterChips from '#lib/components/FilterChips.svelte';
 	import { refreshOn } from '#lib/live-updates.svelte.js';
-	import { ENTITY_ROLES, PERSON_KINDS, isCurrentRole } from '#lib/people.js';
+	import { PERSON_KINDS, isCurrentRole, summariseRoles, type EntityRoleKind } from '#lib/people.js';
 
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const everyone = $derived(await getPeople(workspace.firm.id));
+	const base = $derived(`/${workspace.firm.handle}`);
 	refreshOn(
 		(change) =>
 			change.tenantId === workspace.firm.id &&
@@ -14,10 +16,61 @@
 		() => getPeople(workspace.firm.id).refresh()
 	);
 
-	let search = $state('');
-	const shown = $derived(
-		everyone.filter((person) => person.name.toLowerCase().includes(search.trim().toLowerCase()))
+	// A directory for looking people up: who they are, where they are involved, how to
+	// reach them. Only current roles count; past roles are on each person's page.
+	type Person = (typeof everyone)[number];
+	const currentRoles = (person: Person) => person.roles.filter((role) => isCurrentRole(role));
+	const hasRole = (person: Person, kinds: EntityRoleKind[]) =>
+		currentRoles(person).some((role) => kinds.includes(role.role));
+	const views = {
+		current: { label: 'Current', matches: (p: Person) => currentRoles(p).length > 0 },
+		directors: {
+			label: 'Directors and members',
+			matches: (p: Person) =>
+				hasRole(p, ['director', 'secretary', 'llp_member', 'llp_designated_member'])
+		},
+		owners: {
+			label: 'Owners and PSCs',
+			matches: (p: Person) => hasRole(p, ['shareholder', 'psc'])
+		},
+		contacts: { label: 'Contacts', matches: (p: Person) => hasRole(p, ['contact', 'signatory']) },
+		past: { label: 'No current role', matches: (p: Person) => currentRoles(p).length === 0 }
+	};
+	type View = keyof typeof views;
+	let view = $state<View>('current');
+	let text = $state('');
+
+	const viewOptions = $derived(
+		(Object.keys(views) as View[]).map((key) => ({
+			value: key,
+			label: views[key].label,
+			count: everyone.filter(views[key].matches).length
+		}))
 	);
+	const shown = $derived(
+		everyone.filter((person) => {
+			const wanted = text.trim().toLowerCase();
+			const searchable = [
+				person.name,
+				person.email,
+				...person.roles.map((role) => role.entityName)
+			];
+			return (
+				views[view].matches(person) &&
+				searchable.some((value) => value?.toLowerCase().includes(wanted))
+			);
+		})
+	);
+
+	/** A person's current roles grouped by entity: one line per entity. */
+	function byEntity(person: Person) {
+		const roles = currentRoles(person);
+		const entityIds = [...new Set(roles.map((role) => role.entityId))];
+		return entityIds.map((entityId) => {
+			const atEntity = roles.filter((role) => role.entityId === entityId);
+			return { entityId, entityName: atEntity[0].entityName, summary: summariseRoles(atEntity) };
+		});
+	}
 </script>
 
 <svelte:head><title>People · {workspace.firm.name}</title></svelte:head>
@@ -25,36 +78,67 @@
 <div class="page-heading">
 	<div>
 		<h1>People</h1>
-		<p class="muted">Directors, shareholders, people with significant control and contacts.</p>
+		<p class="muted">
+			Directors, owners and contacts across your clients. Find someone and see everywhere they are
+			involved.
+		</p>
 	</div>
 </div>
 
 {#if everyone.length}
-	<label class="workspace-search"
-		>Find a person<input type="search" bind:value={search} placeholder="Name" /></label
-	>
-	<section class="panel roster" aria-label="People">
-		{#each shown as person (person.id)}
-			{@const current = person.roles.filter((role) => isCurrentRole(role))}
-			<div class="roster-row">
-				<div>
-					<h2><a href={`/${workspace.firm.handle}/people/${person.id}`}>{person.name}</a></h2>
-					{#if person.kind === 'organisation'}<span class="badge">{PERSON_KINDS.organisation}</span
-						>{/if}
-					{#if current.length}
-						<ul class="muted">
-							{#each current as role, index (index)}<li>
-									{ENTITY_ROLES[role.role]},
-									<a href={`/${workspace.firm.handle}/entities/${role.entityId}`}
-										>{role.entityName}</a
-									>
-								</li>{/each}
-						</ul>
-					{:else}<p class="muted">No current roles.</p>{/if}
-				</div>
-			</div>
-		{:else}<p class="muted">Nobody matches “{search}”.</p>{/each}
-	</section>
+	<div class="filters">
+		<FilterChips label="Show" options={viewOptions} bind:value={view} />
+		<label class="filter-search"
+			><span class="visually-hidden">Find a person</span><input
+				type="search"
+				bind:value={text}
+				placeholder="Name, email or entity"
+			/></label
+		>
+	</div>
+	<div class="table-scroll">
+		<table class="client-table">
+			<thead>
+				<tr>
+					<th scope="col">Person</th>
+					<th scope="col">Involved with</th>
+					<th scope="col" class="desktop-context">Contact</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each shown as person (person.id)}
+					{@const groups = byEntity(person)}
+					<tr>
+						<td>
+							<a class="primary-link" href={`${base}/people/${person.id}`}>{person.name}</a>
+							{#if person.kind === 'organisation'}<span class="cell-detail"
+									>{PERSON_KINDS.organisation}</span
+								>{/if}
+						</td>
+						<td>
+							{#if groups.length}
+								<ul class="role-lines">
+									{#each groups as group (group.entityId)}
+										<li>
+											<a href={`${base}/entities/${group.entityId}`}>{group.entityName}</a>
+											<span class="muted">{group.summary}</span>
+										</li>
+									{/each}
+								</ul>
+							{:else}<span class="muted">No current roles</span>{/if}
+						</td>
+						<td class="desktop-context">
+							{#if person.email}<a href={`mailto:${person.email}`}>{person.email}</a>{/if}
+							{#if person.phone}<span class="cell-detail">{person.phone}</span>{/if}
+							{#if !person.email && !person.phone}<span class="muted">—</span>{/if}
+						</td>
+					</tr>
+				{:else}
+					<tr><td colspan="3" class="muted">Nobody matches.</td></tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 {:else}
 	<section class="empty-state">
 		<h2>No people yet</h2>
