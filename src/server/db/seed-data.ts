@@ -1,5 +1,6 @@
 import type { auditEvents } from '../modules/audit/audit-event.entity';
 import type { ClientStatus, RiskRating } from '#lib/clients.js';
+import { addMonths } from '#lib/dates.js';
 import type { AccountingFramework, CompanyStatus, EntityType, SizeClass } from '#lib/companies.js';
 import type { ControlKind, EntityRoleKind, PersonKind } from '#lib/people.js';
 import type { clients, entities, entityRoles, people } from '../modules/clients/client.entity';
@@ -1058,21 +1059,6 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 		]
 	}
 ];
-
-/**
- * The date `months` after `date` (or before, if negative). Month ends stay month ends,
- * as Companies House counts them: 30 June + 9 months → 31 March, 31 Dec + 9 → 30 Sep.
- */
-function addMonths(date: string, months: number) {
-	const [year, month, day] = date.split('-').map(Number);
-	const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
-	const target = new Date(Date.UTC(year, month - 1 + months, 1));
-	const targetYear = target.getUTCFullYear();
-	const targetMonth = target.getUTCMonth() + 1;
-	const lastDay = daysIn(targetYear, targetMonth);
-	target.setUTCDate(day === daysIn(year, month) ? lastDay : Math.min(day, lastDay));
-	return target.toISOString().slice(0, 10);
-}
 
 /**
  * Filing dates as if the client always files on time: private companies have nine

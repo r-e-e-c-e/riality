@@ -1,3 +1,5 @@
+import { addMonths } from './dates';
+
 // Company and entity vocabulary shared by the browser and the server. Each list maps
 // the stored value to the label people see.
 
@@ -67,3 +69,12 @@ export function normaliseCompanyNumber(value: string) {
 	return /^\d{1,7}$/.test(compact) ? compact.padStart(8, '0') : compact;
 }
 export const COMPANY_NUMBER_PATTERN = /^[A-Z0-9]{8}$/;
+
+/**
+ * When a period's accounts are due at Companies House: six months after the year end
+ * for public companies, nine for private companies and LLPs. (First accounts can have
+ * a different deadline; the register's own date wins where we have it.)
+ */
+export function accountsDueOn(periodEnd: string, entityType: EntityType) {
+	return addMonths(periodEnd, entityType === 'public_limited' ? 6 : 9);
+}
