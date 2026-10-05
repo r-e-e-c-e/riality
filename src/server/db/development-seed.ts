@@ -7,8 +7,7 @@ import { lockTenancyAdministration } from '../modules/tenancy/tenancy-access';
 import { tenants } from '../modules/tenancy/tenant.entity';
 import { openDatabase } from './connection';
 import { validateResetTarget, type DevelopmentEnvironment } from './development-reset';
-import { clients, entities } from '../modules/clients/client.entity';
-import { entityRoles, people } from '../modules/clients/person.entity';
+import { clients, entities, entityRoles, people } from '../modules/clients/client.entity';
 import { engagements } from '../modules/engagements/engagement.entity';
 import { reportingPeriods } from '../modules/engagements/reporting-period.entity';
 import { engagementTeam } from '../modules/engagements/team.entity';
@@ -128,9 +127,10 @@ export async function seedDevelopmentDatabase(url: string, environment: SeedEnvi
 			const created = <T extends object>(rows: T[]) =>
 				rows.map((row) => ({ ...row, createdAt: seedTimestamp }));
 			await tx.insert(memberships).values(created(seedMemberships));
+			// People first: a client points at its key contact.
+			await tx.insert(people).values(created(seedPeople));
 			await tx.insert(clients).values(created(seedClients));
 			await tx.insert(entities).values(created(seedEntities));
-			await tx.insert(people).values(created(seedPeople));
 			await tx.insert(entityRoles).values(created(seedRoles));
 			await tx.insert(reportingPeriods).values(created(seedPeriods));
 			await tx.insert(engagements).values(created(seedEngagements));

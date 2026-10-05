@@ -1,8 +1,8 @@
 import type { auditEvents } from '../modules/audit/audit-event.entity';
+import type { ClientStatus, RiskRating } from '#lib/clients.js';
 import type { AccountingFramework, CompanyStatus, EntityType, SizeClass } from '#lib/companies.js';
 import type { ControlKind, EntityRoleKind, PersonKind } from '#lib/people.js';
-import type { entities } from '../modules/clients/client.entity';
-import type { entityRoles, people } from '../modules/clients/person.entity';
+import type { clients, entities, entityRoles, people } from '../modules/clients/client.entity';
 import type { reportingPeriods } from '../modules/engagements/reporting-period.entity';
 import type { EngagementRole } from '../modules/engagements/team.entity';
 import type { users } from '../modules/identity/user.entity';
@@ -166,7 +166,19 @@ type SeedPerson = {
 	roles: SeedRole[];
 };
 
-type SeedClient = { name: string; entities: SeedCompany[]; people: SeedPerson[] };
+type SeedClient = {
+	name: string;
+	status?: ClientStatus;
+	partner: string;
+	manager?: string;
+	/** The name of one of the client's people. */
+	keyContact?: string;
+	risk?: RiskRating;
+	/** When acceptance or continuance was last reviewed. */
+	reviewedOn?: string;
+	entities: SeedCompany[];
+	people: SeedPerson[];
+};
 
 // Firm staff, by first name, to keep the portfolio below easy to read.
 const morgan = seedIds.groupOwner;
@@ -251,6 +263,11 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 		clients: [
 			{
 				name: 'Harrow Family Holdings',
+				partner: morgan,
+				manager: lucy,
+				keyContact: 'Karen Whitley',
+				risk: 'normal',
+				reviewedOn: '2026-02-10',
 				entities: [
 					ltd(
 						'Harrow Holdings Ltd',
@@ -339,6 +356,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Northgate Bakeries',
+				partner: morgan,
+				keyContact: 'Sam Okafor',
+				risk: 'low',
+				reviewedOn: '2025-11-20',
 				entities: [
 					// Small, but audited: the bank's facility letter requires it.
 					ltd(
@@ -380,6 +401,11 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Whitcombe Motors',
+				partner: morgan,
+				manager: lucy,
+				keyContact: 'Ian Moss',
+				risk: 'normal',
+				reviewedOn: '2026-01-15',
 				entities: [
 					ltd(
 						'Whitcombe Motors Ltd',
@@ -439,6 +465,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			{
 				// Lucy leads this one; Morgan owns the firm but is not on the team.
 				name: 'Aire Valley Care',
+				partner: lucy,
+				keyContact: 'Joanne Pickering',
+				risk: 'high',
+				reviewedOn: '2025-09-01',
 				entities: [
 					ltd(
 						'Aire Valley Care Homes Ltd',
@@ -479,6 +509,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Moorland Brewing Co',
+				partner: morgan,
+				keyContact: 'Fiona Kaye',
+				risk: 'normal',
+				reviewedOn: '2025-08-14',
 				entities: [
 					ltd(
 						'Moorland Brewing Ltd',
@@ -521,6 +555,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			{
 				// A new client: entities and people set up, no engagement yet.
 				name: 'Sterling Print Group',
+				partner: morgan,
+				manager: lucy,
+				keyContact: 'Mark Fenwick',
+				status: 'prospect',
 				entities: [
 					ltd('Sterling Print Ltd', {
 						incorporatedOn: '1995-03-27',
@@ -564,6 +602,33 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 					),
 					organisation('Sterling Print Ltd', owns('Sterling Packaging Ltd', 100, '2008-06-02'))
 				]
+			},
+			{
+				// A former client: the firm resigned as auditor after the 2023 audit.
+				name: 'Lowther Joinery',
+				partner: morgan,
+				keyContact: 'Peter Lowther',
+				status: 'former',
+				risk: 'normal',
+				reviewedOn: '2023-05-02',
+				entities: [
+					ltd('Lowther Joinery Ltd', {
+						incorporatedOn: '2002-07-19',
+						sicCodes: ['16230'],
+						registeredOffice: 'Lowther Mill\nStation Road\nSkipton\nNorth Yorkshire',
+						framework: 'frs102_1a',
+						size: 'small',
+						yearEnd: { day: 30, month: 4 }
+					})
+				],
+				people: [
+					individual(
+						'Peter Lowther',
+						{ born: [9, 1964], email: 'peter@lowtherjoinery.example', phone: '07700 900251' },
+						director('Lowther Joinery Ltd', '2002-07-19'),
+						owns('Lowther Joinery Ltd', 100, '2002-07-19')
+					)
+				]
 			}
 		]
 	},
@@ -572,6 +637,11 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 		clients: [
 			{
 				name: 'Pennine Logistics',
+				partner: lucy,
+				manager: morgan,
+				keyContact: 'Stuart Dobson',
+				risk: 'normal',
+				reviewedOn: '2026-03-02',
 				entities: [
 					ltd(
 						'Pennine Logistics Ltd',
@@ -632,6 +702,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			{
 				// Morgan is an admin here but not on this team: listed, but not openable.
 				name: 'Calder Dental Group',
+				partner: lucy,
+				keyContact: 'Mei Chen',
+				risk: 'low',
+				reviewedOn: '2026-05-11',
 				entities: [
 					ltd(
 						'Calder Dental Ltd',
@@ -666,6 +740,11 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Thornbury Construction',
+				partner: lucy,
+				manager: morgan,
+				keyContact: 'Lisa Barker',
+				risk: 'high',
+				reviewedOn: '2026-04-20',
 				entities: [
 					ltd(
 						'Thornbury Construction Ltd',
@@ -702,6 +781,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Castleford Plastics',
+				partner: lucy,
+				keyContact: 'Tony Walsh',
+				risk: 'normal',
+				reviewedOn: '2025-12-01',
 				entities: [
 					ltd(
 						'Castleford Plastics Ltd',
@@ -761,6 +844,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 		clients: [
 			{
 				name: 'Ouse Valley Farms',
+				partner: lucy,
+				keyContact: 'Ruth Dalby',
+				risk: 'low',
+				reviewedOn: '2026-01-08',
 				entities: [
 					ltd(
 						'Ouse Valley Farms Ltd',
@@ -802,6 +889,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Kirkby Fresh Produce',
+				partner: lucy,
+				keyContact: 'Anita Shah',
+				risk: 'normal',
+				reviewedOn: '2025-10-15',
 				entities: [
 					ltd(
 						'Kirkby Fresh Produce Ltd',
@@ -836,6 +927,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 		clients: [
 			{
 				name: 'Kestrel Software',
+				partner: alex,
+				keyContact: 'Emma Doyle',
+				risk: 'normal',
+				reviewedOn: '2026-06-01',
 				entities: [
 					ltd(
 						'Kestrel Software Ltd',
@@ -874,6 +969,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Ellison Recruitment',
+				partner: alex,
+				keyContact: 'Phil Garside',
+				risk: 'normal',
+				reviewedOn: '2026-02-18',
 				entities: [
 					ltd(
 						'Ellison Recruitment Ltd',
@@ -913,6 +1012,10 @@ const portfolio: { firmId: string; clients: SeedClient[] }[] = [
 			},
 			{
 				name: 'Greenfold Garden Centres',
+				partner: alex,
+				keyContact: 'Gail Turner',
+				risk: 'low',
+				reviewedOn: '2025-07-30',
 				entities: [
 					ltd(
 						'Greenfold Garden Centres Ltd',
@@ -997,7 +1100,7 @@ function filingDates(
 
 // The portfolio flattened into table rows, with fixed IDs.
 type Row<T extends { $inferInsert: object }> = T['$inferInsert'] & { id: string; firmId: string };
-export const seedClients: { id: string; firmId: string; name: string }[] = [];
+export const seedClients: Row<typeof clients>[] = [];
 export const seedEntities: (Row<typeof entities> & { clientId: string })[] = [];
 export const seedPeriods: Row<typeof reportingPeriods>[] = [];
 export const seedEngagements: { id: string; firmId: string; periodId: string }[] = [];
@@ -1014,10 +1117,20 @@ export const seedRoles: (Row<typeof entityRoles> & {
 	role: EntityRoleKind;
 })[] = [];
 
-for (const { firmId, clients } of portfolio) {
-	for (const client of clients) {
+for (const { firmId, clients: clientBook } of portfolio) {
+	for (const client of clientBook) {
 		const clientId = fixtureId(4, seedClients.length + 1);
-		seedClients.push({ id: clientId, firmId, name: client.name });
+		const row: Row<typeof clients> = {
+			id: clientId,
+			firmId,
+			name: client.name,
+			status: client.status ?? 'active',
+			partnerId: client.partner,
+			managerId: client.manager ?? null,
+			riskRating: client.risk ?? null,
+			lastReviewedOn: client.reviewedOn ?? null
+		};
+		seedClients.push(row);
 		const entityIds = new Map<string, string>();
 
 		for (const entity of client.entities) {
@@ -1061,6 +1174,7 @@ for (const { firmId, clients } of portfolio) {
 
 		for (const person of client.people) {
 			const personId = fixtureId(8, seedPeople.length + 1);
+			if (person.name === client.keyContact) row.keyContactId = personId;
 			seedPeople.push({
 				id: personId,
 				firmId,
@@ -1088,6 +1202,8 @@ for (const { firmId, clients } of portfolio) {
 				});
 			}
 		}
+		if (client.keyContact && !row.keyContactId)
+			throw new Error(`Seed key contact is not one of the client's people: ${client.keyContact}`);
 	}
 }
 
@@ -1209,5 +1325,26 @@ for (const role of seedRoles) {
 		targetType: 'entity',
 		targetId: role.entityId,
 		details: { roleId: role.id, personId: role.personId, role: role.role, source: 'manual' }
+	});
+}
+// The details set on each client after its people were added.
+for (const client of seedClients) {
+	const fields = [
+		'partnerId',
+		'managerId',
+		'keyContactId',
+		'riskRating',
+		'lastReviewedOn'
+	] as const;
+	const changed: string[] = fields.filter((field) => client[field]);
+	if (client.status !== 'active') changed.unshift('status');
+	if (changed.length === 0) continue;
+	record({
+		action: 'client.updated',
+		actorId: firmOwnerOf(client.firmId),
+		tenantId: client.firmId,
+		targetType: 'client',
+		targetId: client.id,
+		details: { changed }
 	});
 }
