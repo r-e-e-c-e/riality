@@ -102,6 +102,10 @@
 				>
 				{#if canManage}
 					<a
+						href={`/${current.handle}/people`}
+						aria-current={isCurrent(`/${current.handle}/people`)}>People</a
+					>
+					<a
 						href={`/${current.handle}/settings`}
 						aria-current={isCurrent(`/${current.handle}/settings`)}>Settings</a
 					>

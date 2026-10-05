@@ -321,6 +321,31 @@ test('entities are added on the Clients page and edited on their own page', asyn
 	const details = page.getByRole('definition');
 	await expect(details.filter({ hasText: /^31 March$/ })).toBeVisible();
 	await expect(details.filter({ hasText: 'FRS 102 Section 1A (small entities)' })).toBeVisible();
+
+	// People: add a designated member by hand, then find them on the People page.
+	await openDisclosure(page, 'Add a person');
+	const addPerson = page
+		.locator('details')
+		.filter({ has: page.locator('summary', { hasText: /^Add a person$/ }) });
+	await addPerson.getByLabel(/^Name/).fill('Synthetic Member Person');
+	await addPerson
+		.getByRole('combobox', { name: 'Role', exact: true })
+		.selectOption('llp_designated_member');
+	await addPerson.getByLabel('Started on', { exact: true }).fill('2019-06-01');
+	await addPerson.getByRole('button', { name: 'Add person', exact: true }).click();
+	const people = page.getByRole('region', { name: 'People' });
+	await expect(people.getByRole('link', { name: 'Synthetic Member Person' })).toBeVisible();
+	await expect(people.getByText(/LLP designated member · 1 Jun 2019 – present/)).toBeVisible();
+
+	await page.getByRole('link', { name: 'People', exact: true }).click();
+	await page.getByRole('link', { name: 'Synthetic Member Person' }).click();
+	await openDisclosure(page, 'Edit details');
+	await page.getByLabel('Email', { exact: true }).fill('member.person@example.test');
+	await page.getByRole('button', { name: 'Save details', exact: true }).click();
+	await expect(
+		page.getByRole('definition').filter({ hasText: 'member.person@example.test' })
+	).toBeVisible();
+	await expect(page.getByRole('cell', { name: 'Synthetic Register LLP' })).toBeVisible();
 });
 
 test('changes made in one window appear in other open windows without reloading', async ({
