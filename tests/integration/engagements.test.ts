@@ -187,21 +187,18 @@ test('the client directory shows admins every client and members only their clie
 		expect(await names(f.member)).toEqual([]);
 		await f.service.setAssignment(f.owner, { ...f.scope, userId: f.member.id, role: 'auditor' });
 		const directory = await f.clients.listClientDirectory(f.member, f.firm.id);
-		expect(directory).toEqual([
-			{
-				id: f.client.id,
-				name: 'Synthetic Client',
-				entities: [
-					{
-						id: f.entity.id,
-						name: 'Synthetic Trading Ltd',
-						entityType: 'private_limited',
-						companyNumber: null,
-						companyStatus: null
-					}
-				]
-			}
-		]);
+		expect(directory).toHaveLength(1);
+		expect(directory[0]).toMatchObject({
+			id: f.client.id,
+			name: 'Synthetic Client',
+			entities: [
+				{
+					id: f.entity.id,
+					name: 'Synthetic Trading Ltd',
+					engagement: { id: f.scope.engagementId, onTeam: true }
+				}
+			]
+		});
 		expect(directory.some((client) => client.id === quiet.id)).toBe(false);
 		await expect(f.clients.listClientDirectory(f.outsider, f.firm.id)).rejects.toMatchObject({
 			status: 404

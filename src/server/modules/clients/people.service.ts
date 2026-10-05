@@ -18,9 +18,8 @@ import { idSchema } from '#lib/schemas/tenancy.js';
 import { changedFields, recordEvent } from '../audit/audit-event.service';
 import { RATE_LIMITS, createRateLimiter } from '../identity/rate-limit.service';
 import { requireFirmAdmin, type Actor } from '../tenancy/tenancy-access';
-import { entities } from './client.entity';
+import { entities, entityRoles, people } from './client.entity';
 import { requireEntityViewer } from './entity-access';
-import { entityRoles, people } from './person.entity';
 
 type Person = typeof people.$inferSelect;
 type EntityRole = typeof entityRoles.$inferSelect;

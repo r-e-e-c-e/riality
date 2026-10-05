@@ -6,10 +6,12 @@ import { inTransaction } from '../../db/transaction';
 import { BusinessError, notFound, postgresErrorCode } from '../../errors';
 import type { CompaniesHouse, CompanyProfile } from '../../integrations/companies-house';
 import {
+	clientScopeSchema,
 	companySearchSchema,
 	createClientSchema,
 	createEntitySchema,
 	entityScopeSchema,
+	updateClientSchema,
 	updateEntitySchema
 } from '#lib/schemas/clients.js';
 import { idSchema } from '#lib/schemas/tenancy.js';
@@ -21,10 +23,10 @@ import {
 	requireFirmMember,
 	type Actor
 } from '../tenancy/tenancy-access';
-import { clients, entities } from './client.entity';
+import { memberships } from '../tenancy/membership.entity';
+import { clients, entities, entityRoles } from './client.entity';
+import { loadClients, loadPeopleOf } from './client-directory';
 import { onMyEngagementTeam } from './entity-access';
-
-type Entity = typeof entities.$inferSelect;
 
 /** The entity columns that come from Companies House. */
 function registerDetails(profile: CompanyProfile) {
@@ -51,6 +53,34 @@ async function withCompanyNumberCheck<T>(work: () => Promise<T>): Promise<T> {
 	} catch (error) {
 		if (postgresErrorCode(error) === '23505') throw new BusinessError('ENTITY_EXISTS');
 		throw error;
+	}
+}
+
+/**
+ * Clears a leaving member from every client they were partner or manager of. Called
+ * when someone is removed from the firm, in the same transaction.
+ */
+export async function removeClientResponsibilities(
+	tx: Transaction,
+	actor: Actor,
+	firmId: string,
+	userId: string
+) {
+	for (const field of ['partnerId', 'managerId'] as const) {
+		const cleared = await tx
+			.update(clients)
+			.set({ [field]: null })
+			.where(and(eq(clients.firmId, firmId), eq(clients[field], userId)))
+			.returning({ id: clients.id });
+		for (const client of cleared) {
+			await recordEvent(tx, {
+				action: 'client.updated',
+				actorId: actor.id,
+				tenantId: firmId,
+				target: { type: 'client', id: client.id },
+				details: { changed: [field] }
+			});
+		}
 	}
 }
 
@@ -119,58 +149,97 @@ export function createClientsService(
 		},
 
 		/**
-		 * Clients with their legal entities. Owners and admins see all of them;
-		 * members see only clients with an engagement they are assigned to.
+		 * Clients with their partner, manager, key contact, entities, filing deadlines and
+		 * latest engagements. Owners and admins see all of them; members see only clients
+		 * (and entities) with an engagement they are assigned to.
 		 */
 		async listClientDirectory(actor: Actor, firmId: string) {
 			const id = idSchema.parse(firmId);
 			const { role } = await requireFirmMember(db, actor, id);
-			const rows = await db
-				.select({
-					clientId: clients.id,
-					clientName: clients.name,
-					entityId: entities.id,
-					entityName: entities.name,
-					entityType: entities.entityType,
-					companyNumber: entities.companyNumber,
-					companyStatus: entities.companyStatus
-				})
-				.from(clients)
-				.leftJoin(
-					entities,
-					and(eq(entities.firmId, clients.firmId), eq(entities.clientId, clients.id))
-				)
-				.where(
-					and(eq(clients.firmId, id), isOwnerOrAdmin(role) ? undefined : onMyEngagementTeam(actor))
-				)
-				.orderBy(clients.name, clients.id, entities.name);
+			return loadClients(db, actor, { firmId: id, seesAll: isOwnerOrAdmin(role) });
+		},
 
-			// Group the rows into clients, each with its entities.
-			type DirectoryEntity = {
-				id: string;
-				name: string;
-				entityType: Entity['entityType'];
-				companyNumber: string | null;
-				companyStatus: Entity['companyStatus'];
+		/** One client with its entities and everyone with a role at them. Same access as the list. */
+		async getClient(actor: Actor, input: z.infer<typeof clientScopeSchema>) {
+			const { firmId, clientId } = clientScopeSchema.parse(input);
+			const { role } = await requireFirmMember(db, actor, firmId);
+			const [client] = await loadClients(db, actor, {
+				firmId,
+				clientId,
+				seesAll: isOwnerOrAdmin(role)
+			});
+			if (!client) throw notFound('Client');
+			const entityIds = client.entities.map((entity) => entity.id);
+			return { ...client, people: await loadPeopleOf(db, firmId, entityIds) };
+		},
+
+		/**
+		 * Edits a client's details. The partner and manager must be firm members, and the
+		 * key contact must have a role at one of the client's entities. Owners and admins.
+		 */
+		async updateClient(actor: Actor, input: z.input<typeof updateClientSchema>) {
+			const { firmId, clientId, ...form } = updateClientSchema.parse(input);
+			// Fields left empty are cleared.
+			const changes = {
+				name: form.name,
+				status: form.status,
+				partnerId: form.partnerId ?? null,
+				managerId: form.managerId ?? null,
+				keyContactId: form.keyContactId ?? null,
+				riskRating: form.riskRating ?? null,
+				lastReviewedOn: form.lastReviewedOn ?? null
 			};
-			const directory: { id: string; name: string; entities: DirectoryEntity[] }[] = [];
-			for (const row of rows) {
-				let client = directory.at(-1);
-				if (client?.id !== row.clientId) {
-					client = { id: row.clientId, name: row.clientName, entities: [] };
-					directory.push(client);
+			return inTransaction(db, async (tx) => {
+				await requireFirmAdmin(tx, actor, firmId);
+				const [before] = await tx
+					.select()
+					.from(clients)
+					.where(and(eq(clients.firmId, firmId), eq(clients.id, clientId)));
+				if (!before) throw notFound('Client');
+
+				for (const userId of [changes.partnerId, changes.managerId]) {
+					if (!userId) continue;
+					const [member] = await tx
+						.select({ userId: memberships.userId })
+						.from(memberships)
+						.where(and(eq(memberships.tenantId, firmId), eq(memberships.userId, userId)));
+					if (!member) throw notFound('Firm member');
 				}
-				if (row.entityId && row.entityName && row.entityType) {
-					client.entities.push({
-						id: row.entityId,
-						name: row.entityName,
-						entityType: row.entityType,
-						companyNumber: row.companyNumber,
-						companyStatus: row.companyStatus
-					});
+				if (changes.keyContactId) {
+					const [linked] = await tx
+						.select({ id: entityRoles.id })
+						.from(entityRoles)
+						.innerJoin(
+							entities,
+							and(eq(entities.firmId, entityRoles.firmId), eq(entities.id, entityRoles.entityId))
+						)
+						.where(
+							and(
+								eq(entityRoles.firmId, firmId),
+								eq(entityRoles.personId, changes.keyContactId),
+								eq(entities.clientId, clientId)
+							)
+						)
+						.limit(1);
+					if (!linked) throw notFound('Contact');
 				}
-			}
-			return directory;
+
+				const changed = changedFields(before, changes);
+				if (changed.length === 0) return before;
+				const [client] = await tx
+					.update(clients)
+					.set(changes)
+					.where(and(eq(clients.firmId, firmId), eq(clients.id, clientId)))
+					.returning();
+				await recordEvent(tx, {
+					action: 'client.updated',
+					actorId: actor.id,
+					tenantId: firmId,
+					target: { type: 'client', id: clientId },
+					details: { changed }
+				});
+				return client;
+			});
 		},
 
 		/** One entity with all its details. Owners, admins, and members on one of its engagements. */
@@ -195,7 +264,7 @@ export function createClientsService(
 			return { ...entity.entity, clientName: entity.clientName };
 		},
 
-		async createClient(actor: Actor, input: z.infer<typeof createClientSchema>) {
+		async createClient(actor: Actor, input: z.input<typeof createClientSchema>) {
 			const values = createClientSchema.parse(input);
 			return inTransaction(db, async (tx) => {
 				await requireFirmAdmin(tx, actor, values.firmId);

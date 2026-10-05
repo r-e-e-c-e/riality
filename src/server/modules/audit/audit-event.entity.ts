@@ -49,6 +49,8 @@ export type AuditDetails = {
 
 	// Engagement setup
 	'client.created': NoDetails;
+	/** `changed` lists field names only, never values. */
+	'client.updated': { changed: string[] };
 	'entity.created': { clientId: string; source: 'manual' | 'companies_house' };
 	/** `changed` lists field names only, never values. */
 	'entity.updated': { changed: string[]; source: 'manual' | 'companies_house' };

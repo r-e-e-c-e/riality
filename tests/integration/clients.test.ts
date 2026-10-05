@@ -6,6 +6,7 @@ import { createTenant } from '../tenants';
 import type { CompaniesHouse, CompanyProfile } from '../../src/server/integrations/companies-house';
 import { auditEvents } from '../../src/server/modules/audit/audit-event.entity';
 import { createClientsService } from '../../src/server/modules/clients/clients.service';
+import { createPeopleService } from '../../src/server/modules/clients/people.service';
 import { createEngagementsService } from '../../src/server/modules/engagements/engagements.service';
 import { createTenancyService } from '../../src/server/modules/tenancy/tenancy.service';
 import { users } from '../../src/server/modules/identity/user.entity';
@@ -235,3 +236,84 @@ test('owners and admins manage entities; members only see entities they work on'
 		await f.close();
 	}
 }, 20000);
+
+test('client details: responsible partner and manager, key contact, and the client page', async () => {
+	const f = await setup(null);
+	try {
+		const scope = { firmId: f.firm.id, clientId: f.client.id };
+		const entity = await f.clients.createEntity(f.owner, {
+			firmId: f.firm.id,
+			clientId: f.client.id,
+			name: 'Synthetic Trading Ltd'
+		});
+		const people = createPeopleService(f.db, testConfig(), null);
+		const { person: director } = await people.addRole(f.owner, {
+			firmId: f.firm.id,
+			entityId: entity.id,
+			name: 'Dee Synthetic',
+			role: 'director'
+		});
+		const elsewhere = await f.clients.createClient(f.owner, { firmId: f.firm.id, name: 'Other' });
+
+		const details = {
+			...scope,
+			name: 'Synthetic Client',
+			status: 'active' as const,
+			partnerId: f.owner.id,
+			managerId: f.member.id,
+			keyContactId: director.id,
+			riskRating: 'high' as const,
+			lastReviewedOn: '2026-01-31'
+		};
+		await f.clients.updateClient(f.owner, details);
+		const client = await f.clients.getClient(f.owner, scope);
+		expect(client).toMatchObject({
+			partner: { id: f.owner.id },
+			manager: { id: f.member.id },
+			keyContact: { id: director.id, name: 'Dee Synthetic' },
+			riskRating: 'high',
+			lastReviewedOn: '2026-01-31'
+		});
+		expect(client.people).toEqual([
+			expect.objectContaining({
+				personId: director.id,
+				roles: [expect.objectContaining({ entityId: entity.id, role: 'director' })]
+			})
+		]);
+
+		// The key contact must be one of the client's people; the partner a firm member.
+		await expect(
+			f.clients.updateClient(f.owner, { ...details, clientId: elsewhere.id, name: 'Other' })
+		).rejects.toMatchObject({ code: 'NOT_FOUND' });
+		const [stranger] = await f.db
+			.insert(users)
+			.values({
+				name: 'stranger',
+				email: 'stranger@example.test',
+				passwordHash: 'synthetic-unused-hash',
+				emailVerifiedAt: new Date()
+			})
+			.returning();
+		await expect(
+			f.clients.updateClient(f.owner, { ...details, partnerId: stranger.id })
+		).rejects.toMatchObject({ code: 'NOT_FOUND' });
+		await expect(f.clients.updateClient(f.member, details)).rejects.toMatchObject({
+			status: 403
+		});
+
+		// Removing the manager from the firm clears them from the client, with a record.
+		await createTenancyService(f.db).setMembership(f.owner, {
+			tenantId: f.firm.id,
+			userId: f.member.id,
+			role: null
+		});
+		expect((await f.clients.getClient(f.owner, scope)).manager).toBeNull();
+		const updates = await f.db
+			.select({ details: auditEvents.details })
+			.from(auditEvents)
+			.where(eq(auditEvents.action, 'client.updated'));
+		expect(updates.map((event) => event.details)).toContainEqual({ changed: ['managerId'] });
+	} finally {
+		await f.close();
+	}
+});

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CLIENT_STATUSES, RISK_RATINGS } from '../clients';
 import {
 	ACCOUNTING_FRAMEWORKS,
 	COMPANY_NUMBER_PATTERN,
@@ -39,7 +40,29 @@ const dayOrMonth = (max: number) =>
 		])
 		.pipe(z.number().int().min(1, 'Choose a valid date').max(max, 'Choose a valid date'));
 
-export const createClientSchema = z.object({ firmId: idSchema, name: nameSchema });
+export const clientStatusSchema = z.enum(keysOf(CLIENT_STATUSES));
+const riskRatingSchema = z.enum(keysOf(RISK_RATINGS));
+
+export const createClientSchema = z.object({
+	firmId: idSchema,
+	name: nameSchema,
+	status: clientStatusSchema.default('active')
+});
+
+export const clientScopeSchema = z.object({ firmId: idSchema, clientId: idSchema });
+
+/** Editing a client's details: who is responsible for it, its key contact and its risk. */
+export const updateClientSchema = z.object({
+	firmId: idSchema,
+	clientId: idSchema,
+	name: nameSchema,
+	status: clientStatusSchema,
+	partnerId: optional(idSchema),
+	managerId: optional(idSchema),
+	keyContactId: optional(idSchema),
+	riskRating: optional(riskRatingSchema),
+	lastReviewedOn: optional(z.iso.date('Enter a valid date'))
+});
 
 /**
  * Adding an entity. With a company number (and Companies House set up), the details

@@ -11,6 +11,7 @@ import {
 	updateFirmSchema
 } from '#lib/schemas/tenancy.js';
 import { recordEvent } from '../audit/audit-event.service';
+import { removeClientResponsibilities } from '../clients/clients.service';
 import { removeFirmAssignments } from '../engagements/engagements.service';
 import { isActiveUser, users } from '../identity/user.entity';
 import { memberships, type MembershipRole } from './membership.entity';
@@ -187,7 +188,8 @@ export function createTenancyService(db: Database) {
 		 * Adds, changes or (with role null) removes a membership. Owners and admins manage
 		 * members and admins; only owners can grant ownership or change an owner. A tenant
 		 * always keeps at least one active owner. Removing someone from a firm also
-		 * removes their engagement team assignments.
+		 * removes their engagement team assignments and clears them as a client's
+		 * partner or manager.
 		 */
 		async setMembership(
 			actor: Actor,
@@ -236,6 +238,7 @@ export function createTenancyService(db: Database) {
 					});
 				} else if (previousRole) {
 					await removeFirmAssignments(tx, actor, tenantId, userId);
+					await removeClientResponsibilities(tx, actor, tenantId, userId);
 					await tx.delete(memberships).where(thisMembership);
 					await recordEvent(tx, {
 						action: 'membership.removed',
