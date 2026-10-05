@@ -16,7 +16,7 @@ firms before building the audit workflow itself. There are three separate concep
        accounting framework and size. Add an entity by Companies House number or
        search, and refresh it later. Entity detail page. Move client and entity code
        into a `clients` module.
-2. [ ] **People and roles**: firm-scoped people; roles on entities (director,
+2. [x] **People and roles**: firm-scoped people; roles on entities (director,
        secretary, shareholder %, PSC, signatory, contact) with dates; officers and
        PSCs imported from Companies House.
 3. [ ] **Entity relationships**: ownership graph (parent → child, %, kind), allowed
@@ -45,3 +45,18 @@ Out of scope (V1 non-goals): billing, time and WIP, CRM pipeline, tax, schedulin
 - Companies House fields (name, type, status, dates, address, SIC codes, year end,
   accounts due) can be refreshed; framework and size are the firm's judgement and
   are edited by hand. Every change is an audited `entity.updated` with field names.
+
+## Step 2 decisions
+
+- People live in the `clients` module (`person.entity.ts`, `people.service.ts`). One
+  `person` per real person per firm (individual or organisation); `entity_role` links
+  them to entities with dates, a shareholding for shareholders and control kinds for
+  PSCs. The same role from the same start date is recorded once.
+- Companies House import matches people by officer ID, then name and birth month;
+  details in `docs/integrations.md`. Roles entered by hand are never changed by it.
+- People and their contact details are for owners and admins (People page, person
+  page); members see an entity's people when they have an engagement for it.
+- Role events target the entity (so its page and history update); person events
+  target the person. Field names only, never values.
+- Not yet: merging duplicate people, deleting people, linking an organisation person
+  to an entity record (step 3 does that with the ownership graph).

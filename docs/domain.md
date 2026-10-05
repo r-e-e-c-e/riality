@@ -53,8 +53,12 @@ Three separate concepts (see `docs/plans/active/client-entity-model.md`):
   LLP, company limited by guarantee, CIO, ...), company number, register status,
   year end, accounts due date, accounting framework (FRS 102, 102 1A, 105, Charities
   SORP) and size. Register details can come from Companies House.
-- **Person** (planned): a real human linked to entities by role (director,
-  shareholder, PSC, contact), and later a client-portal user.
+- **Person**: a real human or an organisation, recorded once per firm and linked to
+  entities by dated roles: director, company secretary, LLP (designated) member,
+  shareholder (with %), person with significant control (with how they control it),
+  signatory, contact. A role with no end date, or one in the future, is current. The
+  same director of three companies is one person with three roles. Later a person
+  may become a client-portal user.
 
 Entities will also be linked to each other in an ownership graph (planned), for
 related parties, independence checks, exemptions and group audits.
@@ -74,6 +78,9 @@ STATUTORY_AUDIT
 - Firm owners/admins create clients, entities and engagements and manage teams.
 - A team member is an auditor, manager or partner. These are responsibilities, not
   tenant roles and not sign-off authority. The creator becomes manager.
+- Owners and admins manage people and roles and see the People list; members see
+  the people of entities they have an engagement for. Roles are ended by setting an
+  end date; removing one is only for mistakes. Both are audited.
 - Opening an engagement needs current firm membership and a team assignment, even for
   owners. Removing someone from the firm removes their assignments; rejoining does
   not restore them.

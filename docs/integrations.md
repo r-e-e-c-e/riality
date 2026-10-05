@@ -29,7 +29,18 @@ The import layer must tolerate imperfect real-world files.
 `src/server/integrations/companies-house.ts` looks up companies by number and searches
 by name, and maps responses into our own `CompanyProfile` (name, type, status,
 incorporation date, registered office, SIC codes, year end, accounts dates). Entities
-store those fields in their own columns. Officers and PSCs come next (people step).
+store those fields in their own columns. It also lists officers and people with
+significant control (PSCs), mapped into `CompanyOfficer` and `SignificantControl`
+(name, role, dates, month and year of birth, officer ID, our own control kinds).
+
+- Importing an entity's officers and PSCs matches each one to a person the firm
+  already has: by Companies House officer ID, otherwise by kind, name and month and
+  year of birth. Re-importing is safe: it adds new roles and updates end dates and
+  controls on imported roles, and never touches roles entered by hand. Officer roles
+  we don't record (for example judicial factors) and protected PSCs are skipped. Only
+  the first 100 officers and PSCs are read, plenty for V1 clients.
+- Shareholders are not on the API (they are in confirmation statement documents), so
+  they are entered by hand.
 
 - Optional: set `COMPANIES_HOUSE_API_KEY` (a key from a **Live** application in the
   Companies House developer hub; Test keys only work on the sandbox). Without it,

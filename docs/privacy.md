@@ -11,6 +11,10 @@ assigned. Keep evidence outside the repository.
 - **Firms:** tenant names, memberships, invitations.
 - **Engagement setup:** client and entity names, reporting dates, engagements, team
   assignments.
+- **Client people:** names of directors, shareholders, PSCs and contacts, optional
+  email and phone, and (from Companies House only) month and year of birth and the
+  officer ID, used to recognise the same person across companies. We do not copy
+  nationality, occupation or addresses from the register.
 - **Audit history:** who did what, when, with IDs and typed details. No names copied
   in, no raw emails (invitations use a keyed fingerprint), no secrets.
 - **Logs:** request lines and security events with keyed fingerprints instead of raw

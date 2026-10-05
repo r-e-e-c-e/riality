@@ -48,7 +48,7 @@ src/
     modules/
       identity/               users, sessions, passwords, MFA, rate limits, operator actions
       tenancy/                groups/firms tree, memberships, invitations, access checks
-      clients/                clients and legal entities (Companies House details)
+      clients/                clients, legal entities, people and their roles (Companies House)
       engagements/            reporting periods, engagements, teams
       audit/                  append-only audit events
       notifications/          encrypted email outbox and senders
