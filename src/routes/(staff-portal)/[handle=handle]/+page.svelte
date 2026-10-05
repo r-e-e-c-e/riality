@@ -5,7 +5,12 @@
 	import EngagementList from '#lib/components/EngagementList.svelte';
 	import { isFirmRecordChange, refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
-	const engagements = $derived(await getMyEngagements(workspace.firm.id));
+	// Soonest accounts deadline first: what to work on next.
+	const engagements = $derived(
+		(await getMyEngagements(workspace.firm.id)).toSorted((a, b) =>
+			a.accountsDueOn.localeCompare(b.accountsDueOn)
+		)
+	);
 	const base = $derived(`/${workspace.firm.handle}`);
 	refreshOn(
 		(change) => isFirmRecordChange(change, workspace.firm.id),
@@ -18,7 +23,7 @@
 <div class="page-heading">
 	<div>
 		<h1>Dashboard</h1>
-		<p class="muted">Your engagements at {workspace.firm.name}.</p>
+		<p class="muted">Your engagements at {workspace.firm.name}, soonest deadline first.</p>
 	</div>
 	{#if workspace.canManage}<a class="button" href={`${base}/engagements/new`}>New engagement</a
 		>{/if}

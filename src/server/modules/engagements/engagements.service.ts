@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { Database, Transaction } from '../../db/connection';
 import { inTransaction } from '../../db/transaction';
@@ -9,6 +9,7 @@ import {
 	teamAssignmentSchema
 } from '#lib/schemas/engagements.js';
 import { idSchema } from '#lib/schemas/tenancy.js';
+import { accountsDueOn } from '#lib/companies.js';
 import { recordEvent } from '../audit/audit-event.service';
 import { isActiveUser, users } from '../identity/user.entity';
 import { memberships } from '../tenancy/membership.entity';
@@ -44,6 +45,7 @@ function selectEngagements(db: Database | Transaction, actor: Actor) {
 			clientName: clients.name,
 			entityId: entities.id,
 			entityName: entities.name,
+			entityType: entities.entityType,
 			periodId: reportingPeriods.id,
 			periodStart: reportingPeriods.startsOn,
 			periodEnd: reportingPeriods.endsOn,
@@ -74,6 +76,44 @@ function selectEngagements(db: Database | Transaction, actor: Actor) {
 }
 
 const newestPeriodFirst = [desc(reportingPeriods.endsOn), entities.name, engagements.id];
+
+type EngagementRow = Awaited<ReturnType<typeof selectEngagements>>[number];
+
+/**
+ * Adds what engagement lists show: each engagement's team (names and roles) and the
+ * date its accounts are due at Companies House.
+ */
+async function withTeamsAndDeadlines(db: Database, firmId: string, rows: EngagementRow[]) {
+	const team =
+		rows.length === 0
+			? []
+			: await db
+					.select({
+						engagementId: engagementTeam.engagementId,
+						userId: users.id,
+						name: users.name,
+						role: engagementTeam.role
+					})
+					.from(engagementTeam)
+					.innerJoin(users, eq(users.id, engagementTeam.userId))
+					.where(
+						and(
+							eq(engagementTeam.firmId, firmId),
+							inArray(
+								engagementTeam.engagementId,
+								rows.map((row) => row.id)
+							)
+						)
+					)
+					.orderBy(asc(users.name));
+	return rows.map((row) => ({
+		...row,
+		accountsDueOn: accountsDueOn(row.periodEnd, row.entityType),
+		team: team
+			.filter((member) => member.engagementId === row.id)
+			.map((member) => ({ userId: member.userId, name: member.name, role: member.role }))
+	}));
+}
 
 /**
  * Removes all of a user's team assignments in a firm, with an audit event for each.
@@ -111,9 +151,10 @@ export function createEngagementsService(db: Database) {
 		async listAssigned(actor: Actor, firmId: string) {
 			const id = idSchema.parse(firmId);
 			await requireFirmMember(db, actor, id);
-			return selectEngagements(db, actor)
+			const rows = await selectEngagements(db, actor)
 				.where(and(eq(engagements.firmId, id), eq(engagementTeam.userId, actor.id)))
 				.orderBy(...newestPeriodFirst);
+			return withTeamsAndDeadlines(db, id, rows);
 		},
 
 		/**
@@ -124,11 +165,12 @@ export function createEngagementsService(db: Database) {
 			const id = idSchema.parse(firmId);
 			const { role } = await requireFirmMember(db, actor, id);
 			const isAdmin = isOwnerOrAdmin(role);
-			return selectEngagements(db, actor)
+			const rows = await selectEngagements(db, actor)
 				.where(
 					and(eq(engagements.firmId, id), isAdmin ? undefined : eq(engagementTeam.userId, actor.id))
 				)
 				.orderBy(...newestPeriodFirst);
+			return withTeamsAndDeadlines(db, id, rows);
 		},
 
 		/** One engagement with its team (names and roles only). Team members only. */

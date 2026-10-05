@@ -1,29 +1,43 @@
 <script lang="ts">
 	import type { getFirmEngagements } from '#lib/remotes/engagements.remote.js';
+	import { deadlineWarning } from '#lib/clients.js';
 	import { formatDate, teamRoleLabels } from '#lib/format.js';
+
+	// A queue of engagements: what the work is, when it is due and who is doing it.
+	// Owners and admins (canManage) also get a link to each team.
 	let {
 		engagements,
-		showFirm = false,
 		canManage = false
 	}: {
 		engagements: Awaited<ReturnType<typeof getFirmEngagements>>;
-		showFirm?: boolean;
 		canManage?: boolean;
 	} = $props();
+
+	type Engagement = (typeof engagements)[number];
+	const memberWith = (engagement: Engagement, role: 'partner' | 'manager') =>
+		engagement.team.find((member) => member.role === role);
 </script>
 
 <div class="table-scroll">
-	<table>
-		<thead
-			><tr
-				><th>Engagement</th>{#if showFirm}<th class="desktop-context">Firm</th>{/if}<th>Year end</th
-				><th class="desktop-context">Your role</th><th class="desktop-context">Status</th
-				>{#if canManage}<th class="desktop-context"><span class="visually-hidden">Team</span></th
-					>{/if}</tr
-			></thead
-		>
+	<table class="client-table">
+		<thead>
+			<tr>
+				<th scope="col">Engagement</th>
+				<th scope="col">Year end</th>
+				<th scope="col">Accounts due</th>
+				<th scope="col" class="desktop-context">Team</th>
+				<th scope="col" class="desktop-context">Stage</th>
+				{#if canManage}<th scope="col" class="desktop-context"
+						><span class="visually-hidden">Team changes</span></th
+					>{/if}
+			</tr>
+		</thead>
 		<tbody>
 			{#each engagements as engagement (engagement.id)}
+				{@const partner = memberWith(engagement, 'partner')}
+				{@const manager = memberWith(engagement, 'manager')}
+				{@const others = engagement.team.length - (partner ? 1 : 0) - (manager ? 1 : 0)}
+				{@const warning = deadlineWarning(engagement.accountsDueOn)}
 				<tr>
 					<td>
 						<a
@@ -31,23 +45,38 @@
 							href={`/${engagement.firmHandle}/engagements/${engagement.id}${engagement.myRole ? '' : '/team'}`}
 							>{engagement.entityName}</a
 						>
-						<span class="cell-detail">{engagement.clientName}</span>
-						{#if showFirm}<span class="mobile-context cell-detail">{engagement.firmName}</span>{/if}
-						<span class="mobile-context cell-detail"
-							>{engagement.myRole ? teamRoleLabels[engagement.myRole] : 'Unassigned'} · Setup</span
+						<span class="cell-detail"
+							>{[
+								engagement.clientName,
+								engagement.myRole && `You: ${teamRoleLabels[engagement.myRole]}`
+							]
+								.filter(Boolean)
+								.join(' · ')}</span
 						>
 					</td>
-					{#if showFirm}<td class="desktop-context"
-							><a href={`/${engagement.firmHandle}`}>{engagement.firmName}</a></td
-						>{/if}
 					<td class="nowrap">{formatDate(engagement.periodEnd)}</td>
-					<td class="desktop-context"
-						>{engagement.myRole ? teamRoleLabels[engagement.myRole] : 'Unassigned'}</td
-					>
+					<td class="nowrap">
+						{formatDate(engagement.accountsDueOn)}
+						{#if warning}<span class="cell-detail" class:urgent={warning.urgent}
+								>{warning.text}</span
+							>{/if}
+					</td>
+					<td class="desktop-context">
+						{#if engagement.team.length === 0}
+							<span class="badge warning">No team yet</span>
+						{:else}
+							{#if partner}{partner.name}{:else}<span class="badge warning">No partner</span>{/if}
+							<span class="cell-detail"
+								>{[manager?.name ?? 'No manager', others > 0 && `${others} more`]
+									.filter(Boolean)
+									.join(' · ')}</span
+							>
+						{/if}
+					</td>
 					<td class="desktop-context"><span class="badge">Setup</span></td>
 					{#if canManage}<td class="desktop-context"
 							><a href={`/${engagement.firmHandle}/engagements/${engagement.id}/team`}
-								>{engagement.myRole ? 'Manage team' : 'Assign team'}</a
+								>{engagement.team.length ? 'Manage team' : 'Assign team'}</a
 							></td
 						>{/if}
 				</tr>
