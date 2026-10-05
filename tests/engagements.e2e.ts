@@ -322,3 +322,27 @@ test('entities are added on the Clients page and edited on their own page', asyn
 	await expect(details.filter({ hasText: /^31 March$/ })).toBeVisible();
 	await expect(details.filter({ hasText: 'FRS 102 Section 1A (small entities)' })).toBeVisible();
 });
+
+test('changes made in one window appear in other open windows without reloading', async ({
+	context
+}) => {
+	const first = await context.newPage();
+	await signIn(first, ownerEmail);
+	await first.goto(`/${handle}/clients`);
+	const second = await context.newPage();
+	await second.goto(`/${handle}/clients`);
+	// Remember this page load, to prove the window updates in place.
+	await second.evaluate(() => Object.assign(window, { untouched: true }));
+
+	await openDisclosure(first, 'Add a client');
+	await first.getByLabel('Client name', { exact: true }).fill('Synthetic Live Client');
+	await first.getByRole('button', { name: 'Add client', exact: true }).click();
+
+	await expect(second.getByRole('heading', { name: 'Synthetic Live Client' })).toBeVisible();
+	expect(await second.evaluate(() => 'untouched' in window)).toBe(true);
+
+	// Signing out in one window signs out the others.
+	await first.getByLabel(/^Account menu for /).click();
+	await first.getByRole('button', { name: 'Sign out', exact: true }).click();
+	await expect(second.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+});

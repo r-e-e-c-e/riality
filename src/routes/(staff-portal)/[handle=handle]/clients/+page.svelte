@@ -10,9 +10,14 @@
 	} from '#lib/remotes/clients.remote.js';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import { COMPANY_STATUSES, ENTITY_TYPES, keysOf } from '#lib/companies.js';
+	import { isFirmRecordChange, refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const directory = $derived(await getClientDirectory(workspace.firm.id));
 	const companiesHouseEnabled = $derived(await getCompaniesHouseEnabled());
+	refreshOn(
+		(change) => isFirmRecordChange(change, workspace.firm.id),
+		() => getClientDirectory(workspace.firm.id).refresh()
+	);
 
 	// Companies House search (needs JavaScript). Choosing a result fills the company number.
 	let searchText = $state('');

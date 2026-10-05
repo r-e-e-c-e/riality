@@ -3,8 +3,13 @@
 	import { getWorkspace } from '#lib/remotes/workspace.remote.js';
 	import { getFirmEngagements } from '#lib/remotes/engagements.remote.js';
 	import EngagementList from '#lib/components/EngagementList.svelte';
+	import { isFirmRecordChange, refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const engagements = $derived(await getFirmEngagements(workspace.firm.id));
+	refreshOn(
+		(change) => isFirmRecordChange(change, workspace.firm.id),
+		() => getFirmEngagements(workspace.firm.id).refresh()
+	);
 </script>
 
 <svelte:head><title>Engagements · {workspace.firm.name}</title></svelte:head>

@@ -4,12 +4,19 @@
 	import { getTeamSetup, updateAssignment } from './team.remote';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import { formatDate, teamRoleLabels } from '#lib/format.js';
+	import { refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const scope = $derived({
 		firmId: workspace.firm.id,
 		engagementId: page.params.engagementId ?? ''
 	});
 	const setup = $derived(await getTeamSetup(scope));
+	refreshOn(
+		(change) =>
+			change.engagementId === scope.engagementId ||
+			(change.tenantId === scope.firmId && change.action.startsWith('membership.')),
+		() => getTeamSetup(scope).refresh()
+	);
 	const assigned = $derived(setup.members.filter((member) => member.role));
 	const available = $derived(setup.members.filter((member) => !member.role));
 	const add = $derived(updateAssignment.for(`${scope.engagementId}:add`));

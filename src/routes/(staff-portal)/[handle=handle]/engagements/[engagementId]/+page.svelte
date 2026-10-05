@@ -3,12 +3,19 @@
 	import { getEngagement } from './engagement.remote';
 	import { getWorkspace } from '#lib/remotes/workspace.remote.js';
 	import { formatDate, teamRoleLabels } from '#lib/format.js';
+	import { refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const scope = $derived({
 		firmId: workspace.firm.id,
 		engagementId: page.params.engagementId ?? ''
 	});
 	const engagement = $derived(await getEngagement(scope));
+	refreshOn(
+		(change) =>
+			change.engagementId === scope.engagementId ||
+			(change.targetType === 'entity' && change.targetId === engagement.entityId),
+		() => getEngagement(scope).refresh()
+	);
 </script>
 
 <svelte:head><title>{engagement.entityName} · {workspace.firm.name}</title></svelte:head>

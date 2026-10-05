@@ -12,12 +12,19 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import { formatDate } from '#lib/format.js';
+	import { refreshOn } from '#lib/live-updates.svelte.js';
 
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const firm = $derived(workspace.firm);
 	const isOwner = $derived(workspace.role === 'owner');
 	const members = $derived(await getMembers(firm.id));
 	const invites = $derived(await getInvitations(firm.id));
+	refreshOn(
+		(change) =>
+			change.tenantId === firm.id &&
+			(change.action.startsWith('membership.') || change.action.startsWith('invitation.')),
+		() => Promise.all([getMembers(firm.id).refresh(), getInvitations(firm.id).refresh()])
+	);
 	// One instance of these forms per page, so no .for(key): keyed forms lose errors without JavaScript.
 	const invite = inviteMember;
 	const roleLabels = { owner: 'Owner', admin: 'Admin', member: 'Member' } as const;

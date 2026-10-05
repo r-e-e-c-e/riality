@@ -12,11 +12,16 @@
 		keysOf
 	} from '#lib/companies.js';
 	import { formatDate } from '#lib/format.js';
+	import { refreshOn } from '#lib/live-updates.svelte.js';
 
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const scope = $derived({ firmId: workspace.firm.id, entityId: page.params.entityId ?? '' });
 	const entity = $derived(await getEntity(scope));
 	const companiesHouseEnabled = $derived(await getCompaniesHouseEnabled());
+	refreshOn(
+		(change) => change.targetType === 'entity' && change.targetId === scope.entityId,
+		() => getEntity(scope).refresh()
+	);
 	const months = [
 		'January',
 		'February',

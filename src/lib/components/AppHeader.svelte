@@ -5,8 +5,22 @@
 	import { logout } from '#lib/remotes/auth.remote.js';
 	import { WORKSPACE_SEARCH_THRESHOLD } from '#lib/workspaces.js';
 	import Avatar from './Avatar.svelte';
+	import { connectLiveUpdates, refreshOn } from '#lib/live-updates.svelte.js';
 
 	const header = $derived(await getHeader());
+	// One live-updates connection per window, while someone is signed in.
+	const signedIn = $derived(header !== null);
+	$effect(() => {
+		if (signedIn) return connectLiveUpdates();
+	});
+	// The user's own account and memberships, and firm renames.
+	refreshOn(
+		(change) =>
+			change.tenantId === null ||
+			change.subjectUserId === header?.user.id ||
+			change.action === 'tenant.updated',
+		() => getHeader().refresh()
+	);
 	// Close the menus after following a link from them.
 	let switcherOpen = $state(false);
 	let accountOpen = $state(false);

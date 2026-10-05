@@ -9,10 +9,15 @@
 	} from '#lib/remotes/clients.remote.js';
 	import { createEngagement } from './new-engagement.remote';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
+	import { isFirmRecordChange, refreshOn } from '#lib/live-updates.svelte.js';
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
 	const firmId = $derived(workspace.firm.id);
 	const clients = $derived(await getClients(firmId));
 	const entities = $derived(await getEntities(firmId));
+	refreshOn(
+		(change) => isFirmRecordChange(change, firmId),
+		() => Promise.all([getClients(firmId).refresh(), getEntities(firmId).refresh()])
+	);
 	// One instance of each form on this page, so no .for(key): keyed forms lose errors without JavaScript.
 	const clientForm = createClient;
 	const entityForm = createEntity;

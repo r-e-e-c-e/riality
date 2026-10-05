@@ -16,8 +16,14 @@
 	import { AVATAR_COLOR_NAMES } from '#lib/avatar.js';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import { formatDate } from '#lib/format.js';
+	import { refreshOn } from '#lib/live-updates.svelte.js';
 	const user = $derived(await getIdentity());
 	const policy = $derived(await getAuthPolicy());
+	// Account changes made in another window (they have no firm).
+	refreshOn(
+		(change) => change.tenantId === null,
+		() => Promise.all([getIdentity().refresh(), getSessions().refresh()])
+	);
 </script>
 
 <svelte:head><title>Manage account</title></svelte:head>
