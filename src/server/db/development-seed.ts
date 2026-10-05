@@ -8,6 +8,7 @@ import { tenants } from '../modules/tenancy/tenant.entity';
 import { openDatabase } from './connection';
 import { validateResetTarget, type DevelopmentEnvironment } from './development-reset';
 import { clients, entities } from '../modules/clients/client.entity';
+import { entityRoles, people } from '../modules/clients/person.entity';
 import { engagements } from '../modules/engagements/engagement.entity';
 import { reportingPeriods } from '../modules/engagements/reporting-period.entity';
 import { engagementTeam } from '../modules/engagements/team.entity';
@@ -18,7 +19,9 @@ import {
 	seedEvents,
 	seedMemberships,
 	seedPassword,
+	seedPeople,
 	seedPeriods,
+	seedRoles,
 	seedTeam,
 	seedTenants,
 	seedTimestamp,
@@ -38,7 +41,7 @@ export function validateSeedTarget(url: string, environment: SeedEnvironment) {
 }
 
 /**
- * Inserts the synthetic fixtures from seed-data.ts: people, firms, clients and engagements. Running it again does nothing,
+ * Inserts the synthetic fixtures from seed-data.ts: users, firms, clients, people and engagements. Running it again does nothing,
  * so later edits (passwords, roles, removed members) are kept. If only some
  * fixtures exist, or IDs/emails clash with other data, it refuses: use db:reset --seed.
  */
@@ -127,6 +130,8 @@ export async function seedDevelopmentDatabase(url: string, environment: SeedEnvi
 			await tx.insert(memberships).values(created(seedMemberships));
 			await tx.insert(clients).values(created(seedClients));
 			await tx.insert(entities).values(created(seedEntities));
+			await tx.insert(people).values(created(seedPeople));
+			await tx.insert(entityRoles).values(created(seedRoles));
 			await tx.insert(reportingPeriods).values(created(seedPeriods));
 			await tx.insert(engagements).values(created(seedEngagements));
 			await tx.insert(engagementTeam).values(created(seedTeam));

@@ -168,6 +168,7 @@ test('seeded accounts can sign in and parent owners never implicitly gain subsid
 			rows.map((row) => row.entityName).sort();
 		expect(entityNames(await work.listAssigned(morgan, seedIds.baldwynFirm))).toEqual([
 			'Harrow Engineering Ltd',
+			'Harrow Holdings Ltd',
 			'Moorland Brewing Ltd',
 			'Northgate Bakeries Ltd',
 			'Whitcombe Leasing Ltd',
