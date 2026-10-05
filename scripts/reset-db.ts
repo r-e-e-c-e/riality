@@ -18,16 +18,21 @@ await runScript(async () => {
 	console.log(`Development reset target: ${target.hostname}:${target.port || '5432'}/${name}`);
 	if (args.includes('--check')) return;
 
-	// The standard `local` database runs in Docker; start it if needed.
+	// The standard `local` database and file storage run in Docker; start them if needed,
+	// then make sure the storage bucket exists.
 	if (name === 'local' && target.port === '6000') {
-		const docker = Bun.spawn(
-			['docker', 'compose', 'up', '-d', '--wait', '--wait-timeout', '60', 'db'],
-			{
+		const run = async (args: string[], failure: string) => {
+			const docker = Bun.spawn(['docker', 'compose', ...args], {
 				stdout: 'inherit',
 				stderr: 'inherit'
-			}
+			});
+			if ((await docker.exited) !== 0) throw new Error(failure);
+		};
+		await run(
+			['up', '-d', '--wait', '--wait-timeout', '60', 'db', 'storage'],
+			'Could not start the development database and storage'
 		);
-		if ((await docker.exited) !== 0) throw new Error('Could not start the development database');
+		await run(['run', '--rm', '-T', 'storage-setup'], 'Could not create the storage bucket');
 	}
 
 	await resetDevelopmentDatabase(databaseUrl, environment);

@@ -8,19 +8,20 @@ Start with [product](docs/product.md), [domain](docs/domain.md) and
 
 ## Local development
 
-Needs Bun 1.4+ and Docker (for PostgreSQL 18).
+Needs Bun 1.4+ and Docker (for PostgreSQL 18 and MinIO file storage).
 
 ```sh
 bun install
 cp .env.example .env
 bun run auth:key          # paste the output into AUTH_ENCRYPTION_KEY in .env
-bun run db:reset --seed   # starts the Docker database, applies migrations, adds test accounts
+bun run db:reset --seed   # starts Docker (database + storage), applies migrations, adds test data
 bun run dev
 ```
 
 Sign in as `group.owner@example.test` (password in `src/server/db/seed-data.ts`); you
 land on the Baldwyn & Co workspace at `/baldwyn-co`. Or sign up at `/signup`. Emails
-are written to `.local/mail/`, not sent.
+are written to `.local/mail/`, not sent. Synthetic permanent-file documents are uploaded
+to the local MinIO (console at http://localhost:9001, `lines` / `lines-local-secret`).
 
 | Command                     | What it does                                    |
 | --------------------------- | ----------------------------------------------- |

@@ -48,7 +48,7 @@ export function readDevelopmentTarget() {
 		origin: config.origin,
 		mailMode: config.mail.mode
 	};
-	return { databaseUrl: config.databaseUrl, environment };
+	return { databaseUrl: config.databaseUrl, environment, storage: config.storage };
 }
 
 /** Opens the database, builds the services, runs `task` and always closes the connection. */
