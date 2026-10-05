@@ -45,11 +45,19 @@ Firm
 -> Engagement
 -> Period
 
-A Client represents the firm's customer relationship.
+Three separate concepts (see `docs/plans/active/client-entity-model.md`):
 
-An Entity represents a legal/reporting entity.
+- **Client**: the commercial relationship the firm manages (for example "Harrow
+  family"). It holds one or more entities.
+- **Entity**: a legal or reporting body that is audited: type (private limited,
+  LLP, company limited by guarantee, CIO, ...), company number, register status,
+  year end, accounts due date, accounting framework (FRS 102, 102 1A, 105, Charities
+  SORP) and size. Register details can come from Companies House.
+- **Person** (planned): a real human linked to entities by role (director,
+  shareholder, PSC, contact), and later a client-portal user.
 
-A Client may eventually contain multiple Entities.
+Entities will also be linked to each other in an ownership graph (planned), for
+related parties, independence checks, exemptions and group audits.
 
 An Engagement represents one professional engagement performed for an Entity
 for a particular reporting period.

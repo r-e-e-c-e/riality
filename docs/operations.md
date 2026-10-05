@@ -37,7 +37,8 @@ Never copy a seeded database anywhere real.
 ## Production environment
 
 Set `DATABASE_URL`, `AUTH_ENCRYPTION_KEY`, `APP_ORIGIN` (HTTPS, the same at build and
-runtime), `MAIL_MODE=resend`, `RESEND_API_KEY` and `MAIL_FROM`. MFA is always required
+runtime), `MAIL_MODE=resend`, `RESEND_API_KEY` and `MAIL_FROM`. Optionally set
+`COMPANIES_HOUSE_API_KEY` (a Live application key) to enable company lookups. MFA is always required
 on a public origin. The app refuses to start with unsafe settings.
 
 - Run Bun behind a TLS reverse proxy; block direct access to the app and database.

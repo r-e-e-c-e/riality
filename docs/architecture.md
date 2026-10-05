@@ -38,13 +38,15 @@ src/
     services.ts               createServices(db, config): builds every service
     request.ts                helpers for remote functions (requireUser, cookies, errors)
     request-context.ts        per-request IDs (AsyncLocalStorage) for logs and audit events
+    integrations/             outside APIs (Companies House), mapped into our own types
     logger.ts                 JSON log lines
     jobs.ts                   in-process background jobs (email delivery, cleanup)
     db/                       connection, column helpers, runtime grants, dev seed/reset
     modules/
       identity/               users, sessions, passwords, MFA, rate limits, operator actions
       tenancy/                groups/firms tree, memberships, invitations, access checks
-      engagements/            clients, entities, periods, engagements, teams
+      clients/                clients and legal entities (Companies House details)
+      engagements/            reporting periods, engagements, teams
       audit/                  append-only audit events
       notifications/          encrypted email outbox and senders
 scripts/                      operator and dev commands (use the real services)

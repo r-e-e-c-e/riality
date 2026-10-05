@@ -26,19 +26,20 @@ The import layer must tolerate imperfect real-world files.
 
 ### Companies House
 
-Use for UK entity metadata where useful.
+`src/server/integrations/companies-house.ts` looks up companies by number and searches
+by name, and maps responses into our own `CompanyProfile` (name, type, status,
+incorporation date, registered office, SIC codes, year end, accounts dates). Entities
+store those fields in their own columns. Officers and PSCs come next (people step).
 
-Possible data:
-
-- company number
-- legal name
-- registered status
-- incorporation data
-- officers
-- filing metadata
-
-Lines should not treat Companies House as the authoritative source for all
-engagement data.
+- Optional: set `COMPANIES_HOUSE_API_KEY` (a key from a **Live** application in the
+  Companies House developer hub; Test keys only work on the sandbox). Without it,
+  entities are entered by hand.
+- Owners and admins only; 100 lookups per user per 5 minutes (Companies House allows
+  600 per 5 minutes per key). 5-second timeout; any failure says so and allows manual
+  entry. Responses are validated before use.
+- Companies House is a source, not the authority: the firm can edit details, and
+  framework and size are always the firm's judgement.
+- Tests inject a fake client and never call the real API.
 
 ### Xero
 

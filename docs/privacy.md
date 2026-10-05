@@ -57,10 +57,12 @@ Never truncate audit events to meet a request.
 
 ## Suppliers
 
-Before going live, record each supplier (hosting, Resend, Have I Been Pwned): purpose,
+Before going live, record each supplier (hosting, Resend, Have I Been Pwned, Companies
+House): purpose,
 data, region, retention, DPA, sub-processors and transfer safeguards. Resend receives
 recipient addresses and email content (sign-in links, firm names). HIBP receives only
-a 5-character password-hash prefix.
+a 5-character password-hash prefix. Companies House receives company numbers and
+search terms (public register data, no personal data from Lines).
 
 ## Incidents
 
