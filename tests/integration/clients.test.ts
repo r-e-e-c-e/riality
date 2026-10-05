@@ -36,7 +36,9 @@ function fakeCompaniesHouse(companies: CompanyProfile[]): CompaniesHouse {
 					status: c.status,
 					incorporatedOn: c.incorporatedOn,
 					address: c.registeredOffice
-				}))
+				})),
+		getOfficers: async () => [],
+		getSignificantControl: async () => []
 	};
 }
 

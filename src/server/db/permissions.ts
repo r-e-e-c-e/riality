@@ -16,6 +16,8 @@ export const runtimeTables = [
 	'mail_outbox',
 	'client',
 	'entity',
+	'person',
+	'entity_role',
 	'reporting_period',
 	'engagement',
 	'engagement_team'

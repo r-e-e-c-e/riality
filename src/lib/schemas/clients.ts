@@ -21,7 +21,7 @@ export const companyNumberSchema = z
 	.pipe(z.string().regex(COMPANY_NUMBER_PATTERN, 'Enter an 8-character company number'));
 
 /** An optional form field: an empty input ('') counts as not set (undefined). */
-const optional = <T extends z.ZodType<unknown, string | number>>(schema: T) =>
+export const optional = <T extends z.ZodType<unknown, string | number>>(schema: T) =>
 	z
 		.union([z.literal(''), schema])
 		.optional()

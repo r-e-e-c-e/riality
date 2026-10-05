@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { Config } from '../../config';
 import type { Database, Transaction } from '../../db/connection';
@@ -13,10 +13,7 @@ import {
 	updateEntitySchema
 } from '#lib/schemas/clients.js';
 import { idSchema } from '#lib/schemas/tenancy.js';
-import { recordEvent } from '../audit/audit-event.service';
-import { engagements } from '../engagements/engagement.entity';
-import { reportingPeriods } from '../engagements/reporting-period.entity';
-import { engagementTeam } from '../engagements/team.entity';
+import { changedFields, recordEvent } from '../audit/audit-event.service';
 import { RATE_LIMITS, createRateLimiter } from '../identity/rate-limit.service';
 import {
 	isOwnerOrAdmin,
@@ -25,22 +22,9 @@ import {
 	type Actor
 } from '../tenancy/tenancy-access';
 import { clients, entities } from './client.entity';
+import { onMyEngagementTeam } from './entity-access';
 
 type Entity = typeof entities.$inferSelect;
-
-/** SQL condition: the actor is on the team of an engagement for this entity. */
-function onMyEngagementTeam(actor: Actor) {
-	return sql`exists (
-		select 1 from ${reportingPeriods}
-		join ${engagements} on ${engagements.firmId} = ${reportingPeriods.firmId}
-			and ${engagements.periodId} = ${reportingPeriods.id}
-		join ${engagementTeam} on ${engagementTeam.firmId} = ${engagements.firmId}
-			and ${engagementTeam.engagementId} = ${engagements.id}
-		where ${reportingPeriods.firmId} = ${entities.firmId}
-			and ${reportingPeriods.entityId} = ${entities.id}
-			and ${engagementTeam.userId} = ${actor.id}
-	)`;
-}
 
 /** The entity columns that come from Companies House. */
 function registerDetails(profile: CompanyProfile) {
@@ -58,16 +42,6 @@ function registerDetails(profile: CompanyProfile) {
 		lastAccountsMadeUpTo: profile.lastAccountsMadeUpTo,
 		companiesHouseSyncedAt: new Date()
 	};
-}
-
-/** Names of the fields whose values differ, for the audit record. */
-function changedFields(before: Entity, after: Partial<Entity>) {
-	return Object.entries(after)
-		.filter(([field]) => field !== 'companiesHouseSyncedAt')
-		.filter(
-			([field, value]) => JSON.stringify(before[field as keyof Entity]) !== JSON.stringify(value)
-		)
-		.map(([field]) => field);
 }
 
 /** Turns the unique (firm, company number) violation into ENTITY_EXISTS. */
@@ -336,7 +310,9 @@ export function createClientsService(
 					.set(details)
 					.where(and(eq(entities.firmId, firmId), eq(entities.id, entityId)))
 					.returning();
-				const changed = changedFields(before, details);
+				const changed = changedFields(before, details).filter(
+					(field) => field !== 'companiesHouseSyncedAt'
+				);
 				if (changed.length > 0) {
 					await recordEvent(tx, {
 						action: 'entity.updated',

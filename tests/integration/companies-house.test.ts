@@ -99,3 +99,79 @@ test('missing companies return null; outages and bad responses are "unavailable"
 		});
 	}
 });
+
+test('officers and people with significant control are mapped into our own shape', async () => {
+	const companiesHouse = createCompaniesHouse('synthetic-key', async (url) => {
+		if (url.includes('/officers'))
+			return json({
+				items: [
+					{
+						name: "O'NEILL-SMITH, Ada Grace",
+						officer_role: 'director',
+						appointed_on: '2010-05-01',
+						date_of_birth: { month: 4, year: 1971 },
+						links: { officer: { appointments: '/officers/SyntheticA1/appointments' } }
+					},
+					{
+						name: 'SYNTHETIC HOLDINGS LIMITED',
+						officer_role: 'corporate-secretary',
+						appointed_on: '2012-01-01',
+						resigned_on: '2020-06-30',
+						links: { officer: { appointments: '/officers/SyntheticB2/appointments' } }
+					},
+					// Roles we don't record are left out.
+					{ name: 'FACTOR, Judicial', officer_role: 'judicial-factor' }
+				]
+			});
+		return json({
+			items: [
+				{
+					kind: 'individual-person-with-significant-control',
+					name: "Mrs Ada Grace O'Neill-Smith",
+					name_elements: { forename: 'Ada', middle_name: 'Grace', surname: "O'NEILL-SMITH" },
+					notified_on: '2016-04-06',
+					date_of_birth: { month: 4, year: 1971 },
+					natures_of_control: [
+						'ownership-of-shares-75-to-100-percent',
+						'voting-rights-75-to-100-percent',
+						'right-to-appoint-and-remove-directors',
+						'a-nature-we-do-not-know'
+					]
+				},
+				// Protected people with significant control have no name and are left out.
+				{ kind: 'super-secure-person-with-significant-control', natures_of_control: [] }
+			]
+		});
+	});
+
+	expect(await companiesHouse.getOfficers('00012345')).toEqual([
+		{
+			name: "Ada Grace O'Neill-Smith",
+			kind: 'individual',
+			role: 'director',
+			appointedOn: '2010-05-01',
+			resignedOn: null,
+			birth: { month: 4, year: 1971 },
+			officerId: 'SyntheticA1'
+		},
+		{
+			name: 'SYNTHETIC HOLDINGS LIMITED',
+			kind: 'organisation',
+			role: 'secretary',
+			appointedOn: '2012-01-01',
+			resignedOn: '2020-06-30',
+			birth: null,
+			officerId: 'SyntheticB2'
+		}
+	]);
+	expect(await companiesHouse.getSignificantControl('00012345')).toEqual([
+		{
+			name: "Ada Grace O'Neill-Smith",
+			kind: 'individual',
+			notifiedOn: '2016-04-06',
+			ceasedOn: null,
+			birth: { month: 4, year: 1971 },
+			controls: ['shares_75_to_100', 'votes_75_to_100', 'appoints_directors', 'other']
+		}
+	]);
+});

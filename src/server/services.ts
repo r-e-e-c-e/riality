@@ -2,6 +2,7 @@ import type { Config } from './config';
 import type { Database } from './db/connection';
 import { createCompaniesHouse, type CompaniesHouse } from './integrations/companies-house';
 import { createClientsService } from './modules/clients/clients.service';
+import { createPeopleService } from './modules/clients/people.service';
 import { createEngagementsService } from './modules/engagements/engagements.service';
 import { createIdentityAdministrationService } from './modules/identity/identity-administration.service';
 import { createIdentityService, type IdentityOverrides } from './modules/identity/identity.service';
@@ -33,6 +34,7 @@ export function createServices(db: Database, config: Config, overrides: ServiceO
 		tenancyAdministration: createTenancyAdministrationService(db),
 		invitations: createInvitationService(db, config),
 		clients: createClientsService(db, config, companiesHouse),
+		people: createPeopleService(db, config, companiesHouse),
 		engagements: createEngagementsService(db),
 		mail: createMailService(db, config.encryptionKey)
 	};

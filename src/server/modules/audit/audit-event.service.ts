@@ -28,6 +28,16 @@ type AuditEvent<Action extends AuditAction> = AuditActor &
 	};
 
 /**
+ * The names of the fields in `after` whose values differ from `before`, for an
+ * audit event's `changed` list (names only, never values).
+ */
+export function changedFields<T extends object>(before: T, after: Partial<T>) {
+	return Object.entries(after)
+		.filter(([field, value]) => JSON.stringify(before[field as keyof T]) !== JSON.stringify(value))
+		.map(([field]) => field);
+}
+
+/**
  * Records an audit event. Always pass the transaction that makes the change, so the
  * change and its audit record are saved together or not at all.
  * The current request and session IDs are added automatically.

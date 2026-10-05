@@ -5,6 +5,7 @@ import { users } from '../identity/user.entity';
 import { tenants } from '../tenancy/tenant.entity';
 import type { MembershipRole } from '../tenancy/membership.entity';
 import type { EngagementRole } from '../engagements/team.entity';
+import type { EntityRoleKind } from '#lib/people.js';
 
 type NoDetails = Record<string, never>;
 
@@ -51,6 +52,22 @@ export type AuditDetails = {
 	'entity.created': { clientId: string; source: 'manual' | 'companies_house' };
 	/** `changed` lists field names only, never values. */
 	'entity.updated': { changed: string[]; source: 'manual' | 'companies_house' };
+	'person.created': { source: 'manual' | 'companies_house' };
+	/** `changed` lists field names only, never values. */
+	'person.updated': { changed: string[] };
+	// Role events target the entity, so its page and history show them.
+	'entity_role.added': {
+		roleId: string;
+		personId: string;
+		role: EntityRoleKind;
+		source: 'manual' | 'companies_house';
+	};
+	'entity_role.updated': {
+		roleId: string;
+		changed: string[];
+		source: 'manual' | 'companies_house';
+	};
+	'entity_role.removed': { roleId: string; personId: string; role: EntityRoleKind };
 	'engagement.created': {
 		clientId: string;
 		entityId: string;
@@ -69,7 +86,7 @@ export type AuditAction = keyof AuditDetails;
 
 /** The kind of record an event is about. */
 export type AuditTargetType =
-	'user' | 'session' | 'tenant' | 'invitation' | 'client' | 'entity' | 'engagement';
+	'user' | 'session' | 'tenant' | 'invitation' | 'client' | 'entity' | 'person' | 'engagement';
 
 /**
  * Append-only history of consequential actions. The app may only insert; a trigger
