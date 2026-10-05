@@ -15,6 +15,10 @@ assigned. Keep evidence outside the repository.
   email and phone, and (from Companies House only) month and year of birth and the
   officer ID, used to recognise the same person across companies. We do not copy
   nationality, occupation or addresses from the register.
+- **Documents:** permanent-file documents uploaded by the firm (constitutional,
+  ownership, contracts, loans, leases, engagement letters). These can contain personal
+  data about the client's people. Removed documents are kept for now; a retention
+  schedule is needed before real client files.
 - **Audit history:** who did what, when, with IDs and typed details. No names copied
   in, no raw emails (invitations use a keyed fingerprint), no secrets.
 - **Logs:** request lines and security events with keyed fingerprints instead of raw
@@ -61,12 +65,13 @@ Never truncate audit events to meet a request.
 
 ## Suppliers
 
-Before going live, record each supplier (hosting, Resend, Have I Been Pwned, Companies
-House): purpose,
+Before going live, record each supplier (hosting, Cloudflare R2, Resend, Have I Been
+Pwned, Companies House): purpose,
 data, region, retention, DPA, sub-processors and transfer safeguards. Resend receives
 recipient addresses and email content (sign-in links, firm names). HIBP receives only
 a 5-character password-hash prefix. Companies House receives company numbers and
-search terms (public register data, no personal data from Lines).
+search terms (public register data, no personal data from Lines). Cloudflare R2 stores
+uploaded documents; choose an EU or UK jurisdiction for the bucket.
 
 ## Incidents
 

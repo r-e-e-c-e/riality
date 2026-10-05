@@ -40,7 +40,7 @@ src/
     services.ts               createServices(db, config): builds every service
     request.ts                helpers for remote functions (requireUser, cookies, errors)
     request-context.ts        per-request IDs (AsyncLocalStorage) for logs and audit events
-    integrations/             outside APIs (Companies House), mapped into our own types
+    integrations/             outside APIs (Companies House, S3 file storage), mapped into our own types
     logger.ts                 JSON log lines
     jobs.ts                   in-process background jobs (email delivery, cleanup)
     change-feed.ts            live updates: Postgres notifications fanned out to browser windows
@@ -50,6 +50,7 @@ src/
       tenancy/                groups/firms tree, memberships, invitations, access checks
       clients/                clients, legal entities, people and their roles (Companies House)
       engagements/            reporting periods, engagements, teams
+      documents/              permanent-file documents (rows here, files in object storage)
       audit/                  append-only audit events
       notifications/          encrypted email outbox and senders
 scripts/                      operator and dev commands (use the real services)

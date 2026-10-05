@@ -22,12 +22,13 @@ firms before building the audit workflow itself. There are three separate concep
 3. [ ] **Entity relationships**: ownership graph (parent → child, %, kind), allowed
        across clients; group-structure view on the client page. Feeds related parties,
        independence checks, exemptions and later group audits.
-4. [ ] **Client and staff roles**: ~~client partner and manager~~ (done, with status,
+4. [x] **Client and staff roles**: ~~client partner and manager~~ (done, with status,
        key contact, risk rating and acceptance review date; Clients table and client
-       page). Still to do: staff professional profile (qualification, Responsible
-       Individual status for audit sign-off).
-5. [ ] **Files**: storage choice (S3-compatible), upload security review, permanent
-       file per entity. Scope: client, entity or engagement.
+       page). Responsible Individual status is done too (regulator and date;
+       only an RI can be engagement partner). Qualifications are not recorded yet.
+5. [x] **Files**: S3-compatible storage (R2, MinIO locally), upload checks, the
+       entity's permanent file. Client- and engagement-level files come with the audit
+       workflow (evidence).
 6. [ ] **Threads, requests and tasks**, then the client portal (people as external
        users, scoped to their own entities and requests).
 

@@ -136,11 +136,33 @@ user will share one address (see `operations.md`).
 - Unexpected errors return a generic message and a reference (the request ID); details
   stay in the logs. Business errors return only their catalogue message.
 - After sign-in, `next` is followed only if it is a path on this site (no open redirects).
-- Set `BODY_SIZE_LIMIT=64K` in production.
+- Set `BODY_SIZE_LIMIT=26M` in production (document uploads are up to 25 MB); have the
+  proxy allow large bodies only for signed-in requests if it can.
+
+## Documents and file storage
+
+- Files live in S3-compatible object storage (Cloudflare R2 in production, MinIO
+  locally), in a private bucket the app reaches with its own key. Storage keys are
+  `firms/{firmId}/entities/{entityId}/{documentId}`, always made by the app, never from
+  file names.
+- Who: anyone who can see the entity (owners, admins, members on one of its
+  engagements) can list, download and upload; owners and admins remove. Every download
+  is access-checked by the app; there are no public or long-lived file links.
+- Uploads: at most 25 MB; only PDF, Word, Excel, CSV, Outlook email and images; the
+  contents must match the extension (file signatures), so a renamed program or web page
+  is refused. The stored content type comes from our allowlist, not the browser.
+  200 uploads per user per hour.
+- Downloads are always `Content-Disposition: attachment` with `nosniff`, so uploaded
+  files are never rendered or run inside the app.
+- Each document records its SHA-256, size, uploader and time. Uploads and removals are
+  audited. Removal is soft: the row and the file are kept.
+- Not built yet: malware scanning (needed before real client files: scan on upload or
+  in R2 before a file can be downloaded), retention and permanent deletion, and
+  per-object encryption keys (R2 encrypts at rest).
 
 ## Not built yet
 
-File uploads/evidence storage, AI provider calls, SSO/passkeys, account deletion and
+Malware scanning and retention for documents, AI provider calls, SSO/passkeys, account deletion and
 automatic audit-history retention. Each needs its own authorisation, retention and
 threat review. Get an independent security review of authentication and tenant
 isolation before the first real-client pilot.

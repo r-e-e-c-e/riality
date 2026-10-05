@@ -45,7 +45,12 @@ on a public origin. The app refuses to start with unsafe settings.
 - If the proxy passes the client IP in a header, set the Bun adapter's
   `ADDRESS_HEADER` (and `XFF_DEPTH` for `X-Forwarded-For`). The proxy must overwrite
   client-supplied values. Get this right, or rate limits treat every user as one address.
-- Set `BODY_SIZE_LIMIT=64K`. Keep server clocks synchronised (TOTP depends on it).
+- Set `BODY_SIZE_LIMIT=26M` (document uploads are up to 25 MB). Keep server clocks
+  synchronised (TOTP depends on it).
+- File storage: create a private Cloudflare R2 bucket and an API token limited to it
+  (object read and write), then set `S3_ENDPOINT` (`https://<account>.r2.cloudflarestorage.com`),
+  `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. No public access, no CORS.
+  Include the bucket in backups and recovery tests: database rows point at its files.
 - Serve over HTTP/2. Every open window keeps a live-updates stream (`/api/events`), and
   HTTP/1.1 browsers allow only six connections per site. The proxy must not buffer
   `text/event-stream` responses or close them for being idle (the app sends a ping
