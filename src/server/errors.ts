@@ -93,6 +93,18 @@ const BUSINESS_ERRORS = {
 	},
 	INVITATION_NO_LONGER_VALID: { status: 400, message: 'This invitation is no longer valid' },
 
+	// Clients and entities
+	ENTITY_EXISTS: { status: 409, message: 'This company is already an entity at this firm' },
+	COMPANY_NOT_FOUND: { status: 404, message: 'Companies House has no company with that number' },
+	COMPANIES_HOUSE_UNAVAILABLE: {
+		status: 503,
+		message: 'Companies House is not responding. Try again, or enter the details by hand.'
+	},
+	COMPANIES_HOUSE_NOT_CONFIGURED: {
+		status: 503,
+		message: 'Companies House lookups are not set up. Enter the details by hand.'
+	},
+
 	// Engagements
 	ENGAGEMENT_EXISTS: {
 		status: 409,

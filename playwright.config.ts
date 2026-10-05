@@ -10,7 +10,9 @@ export default defineConfig({
 			APP_ORIGIN: 'http://localhost:4173',
 			AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 2).toString('base64'),
 			REQUIRE_MFA: process.env.TEST_REQUIRE_MFA ?? 'false',
-			MAIL_MODE: 'preview'
+			MAIL_MODE: 'preview',
+			// Bun loads .env, so blank this: browser tests never call Companies House.
+			COMPANIES_HOUSE_API_KEY: ''
 		}
 	},
 	workers: 1,

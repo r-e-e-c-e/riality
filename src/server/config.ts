@@ -15,6 +15,8 @@ export type Config = {
 	requireMfa: boolean;
 	signup: 'public' | 'invitation';
 	mail: MailConfig;
+	/** Null when no key is configured: Companies House lookups are then turned off. */
+	companiesHouseApiKey: string | null;
 };
 
 const LOCAL_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
@@ -48,7 +50,8 @@ export function createConfig(
 			encryptionKey: env.AUTH_ENCRYPTION_KEY || Buffer.alloc(32).toString('base64'),
 			requireMfa: true,
 			signup: 'public',
-			mail: { mode: 'preview' }
+			mail: { mode: 'preview' },
+			companiesHouseApiKey: null
 		};
 	}
 
@@ -73,7 +76,8 @@ export function createConfig(
 		encryptionKey: env.AUTH_ENCRYPTION_KEY,
 		requireMfa: !isLocal || env.REQUIRE_MFA === 'true',
 		signup: env.SIGNUP_MODE === 'invitation' ? 'invitation' : 'public',
-		mail
+		mail,
+		companiesHouseApiKey: env.COMPANIES_HOUSE_API_KEY || null
 	};
 }
 

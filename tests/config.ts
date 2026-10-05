@@ -13,6 +13,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
 		requireMfa: false,
 		signup: 'public',
 		mail: { mode: 'preview' },
+		companiesHouseApiKey: null,
 		...overrides
 	};
 }

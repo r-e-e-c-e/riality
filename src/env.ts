@@ -29,6 +29,10 @@ export const variables = defineEnvVars({
 		description: 'preview writes emails to .local/mail (local only). resend sends real email.'
 	},
 	RESEND_API_KEY: { schema: z.string().optional(), description: 'Resend API key.' },
+	COMPANIES_HOUSE_API_KEY: {
+		schema: z.string().optional(),
+		description: 'Companies House API key. Without it, entities are entered by hand.'
+	},
 	MAIL_FROM: {
 		schema: z.string().optional(),
 		description: 'Verified sender address, for example "Lines <accounts@example.com>".'
