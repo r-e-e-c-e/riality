@@ -46,6 +46,12 @@ on a public origin. The app refuses to start with unsafe settings.
   `ADDRESS_HEADER` (and `XFF_DEPTH` for `X-Forwarded-For`). The proxy must overwrite
   client-supplied values. Get this right, or rate limits treat every user as one address.
 - Set `BODY_SIZE_LIMIT=64K`. Keep server clocks synchronised (TOTP depends on it).
+- Serve over HTTP/2. Every open window keeps a live-updates stream (`/api/events`), and
+  HTTP/1.1 browsers allow only six connections per site. The proxy must not buffer
+  `text/event-stream` responses or close them for being idle (the app sends a ping
+  every 25 seconds).
+- Live updates use PostgreSQL `LISTEN`, which needs a direct or session-mode
+  connection; a transaction-mode pooler (PgBouncer) silently drops notifications.
 - Remote PostgreSQL always uses verified TLS. For a private CA, add it to the
   runtime's trust store; never disable verification.
 - Keep `AUTH_ENCRYPTION_KEY` in a secret manager, backed up separately from database
@@ -68,7 +74,8 @@ Never use `db:push`: it skips the security triggers.
 
 Email delivery (every 5 s) and expired-record cleanup (hourly) run inside the app
 (`src/server/jobs.ts`). There is no cron to configure, and running several servers is
-safe.
+safe. Live updates also start with the app (`src/server/change-feed.ts`); each server
+keeps one extra database connection for `LISTEN`.
 
 Logs are JSON lines on stdout/stderr, each with a `requestId` that also appears in
 the `x-request-id` header, error references and audit events. Send them to a

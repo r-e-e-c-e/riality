@@ -41,6 +41,11 @@ external AI calls, audit logs or retention.
 - Sensitive actions (memberships, team changes, invitations, MFA setup, session
   management, account export) need the password within the last 10 minutes.
   Re-confirming rotates the token and keeps the original expiry.
+- The live-updates stream (`/api/events`) does not count as activity. It rechecks its
+  session every minute and as soon as that session or user changes, then closes;
+  other windows of a signed-out browser return to the sign-in page. Streams carry
+  IDs only, filtered by firm membership and engagement team; pages fetch the data
+  through the normal access-checked queries.
 
 ## MFA
 

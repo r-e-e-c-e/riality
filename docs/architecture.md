@@ -18,11 +18,12 @@ Do not add a framework, service or infrastructure dependency without a written r
 ```text
 src/
   env.ts                      every environment variable, with Zod schemas
-  hooks.server.ts             session lookup, request ID, security headers, starts jobs
+  hooks.server.ts             session lookup, request ID, security headers, starts jobs and live updates
   lib/
     schemas/                  Zod schemas for operation inputs (shared by browser and server)
     remotes/                  remote functions used by several routes
     components/               shared Svelte components
+    live-updates.svelte.ts    the window's live-updates connection and refreshOn()
   routes/                     route groups (in brackets) organise pages without changing URLs
     (auth)/                   signed-out pages (Lines branding): login, signup, password reset, invite
     (staff-portal)/           signed-in staff; the layout renders the app header
@@ -31,6 +32,7 @@ src/
       [handle=handle]/        a firm workspace: dashboard, clients, engagements, settings
         <page>/+page.svelte
         <page>/<name>.remote.ts  remote functions used only by this page
+    api/events/+server.ts     the live-updates stream (the only endpoint that is not a remote function)
   params.ts                   route matchers ([handle=handle] only matches handle-shaped paths)
   server/                     server-only (SvelteKit blocks browser imports)
     app.ts                    the running app's config, db and services
@@ -41,6 +43,7 @@ src/
     integrations/             outside APIs (Companies House), mapped into our own types
     logger.ts                 JSON log lines
     jobs.ts                   in-process background jobs (email delivery, cleanup)
+    change-feed.ts            live updates: Postgres notifications fanned out to browser windows
     db/                       connection, column helpers, runtime grants, dev seed/reset
     modules/
       identity/               users, sessions, passwords, MFA, rate limits, operator actions
@@ -201,6 +204,46 @@ queued email every 5 seconds and removes expired records hourly. Running several
 servers is safe (`SKIP LOCKED`, idempotent deletes). Operator actions (provisioning,
 disabling users, MFA reset, key rotation, runtime grants) are interactive scripts in
 `scripts/`, never web endpoints.
+
+## Live updates
+
+Changes appear in every open window, for every user who may see them, without
+reloading. The audit log drives it, so anything audited is also announced:
+
+```text
+service records an audit event
+  -> trigger sends pg_notify('lines_changes', IDs only) when the transaction commits
+  -> change-feed.ts (one LISTEN connection per app server) picks the windows that may see it
+  -> /api/events streams { action, tenantId, engagementId, targetType, targetId, ... }
+  -> live-updates.svelte.ts refreshes only the queries on screen that the change affects
+```
+
+- Windows get IDs, never data; they fetch again through the normal access-checked
+  queries. A stream reaches firm members for firm changes, the team (plus owners and
+  admins) for engagement changes, and the user themselves for account changes.
+- Pages declare what they show with `refreshOn(matches, refresh)`, next to the query:
+
+  ```ts
+  const entity = $derived(await getEntity(scope));
+  refreshOn(
+  	(change) => change.targetType === 'entity' && change.targetId === scope.entityId,
+  	() => getEntity(scope).refresh()
+  );
+  ```
+
+  Only refresh queries the component already shows. Refreshing updates the page in
+  place and never touches form inputs, so someone typing keeps their draft.
+
+- Each window has its own connection. Hidden windows hold refreshes until shown, and
+  close their connection after a minute hidden (catching up when shown again). After
+  any gap in the connection, the window refreshes everything it shows.
+- The stream never counts as activity, so it does not keep an idle session alive. It
+  rechecks the session every minute (and at once when a session or membership changes),
+  and signing out in one window signs out the session's other windows.
+- To announce a change that is not audited (for example autosaved drafts), add a
+  `pg_notify` call in the same transaction rather than a second mechanism.
+- Edit conflicts (two people saving the same record) are not handled yet; when they
+  matter, add a `version` column and refuse stale saves.
 
 ## Logging
 
