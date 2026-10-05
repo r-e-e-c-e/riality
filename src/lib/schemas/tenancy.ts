@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { keysOf } from '../companies';
 import { HANDLE_PATTERN, isReservedHandle } from '../handles';
+import { AUDIT_REGULATORS } from '../staff';
 import { emailSchema, nameSchema } from './identity';
 
 export const idSchema = z.uuid();
@@ -45,5 +47,27 @@ export const membershipSchema = z.object({
 export const membershipFormSchema = membershipSchema
 	.extend({ role: z.enum([...roleSchema.options, 'remove']), handle: handleSchema })
 	.transform((input) => ({ ...input, role: input.role === 'remove' ? null : input.role }));
+
+/**
+ * Making someone a Responsible Individual at a firm, or (with no regulator) not one.
+ * A regulator needs a start date.
+ */
+export const responsibleIndividualSchema = z
+	.object({
+		tenantId: idSchema,
+		userId: idSchema,
+		auditRegulator: z
+			.union([z.literal(''), z.enum(keysOf(AUDIT_REGULATORS))])
+			.optional()
+			.transform((value) => value || undefined),
+		since: z
+			.union([z.literal(''), z.iso.date('Enter a valid date')])
+			.optional()
+			.transform((value) => value || undefined)
+	})
+	.refine((input) => !input.auditRegulator || input.since, {
+		message: 'Enter the date they became a Responsible Individual',
+		path: ['since']
+	});
 
 export const inviteSchema = z.object({ tenantId: idSchema, email: emailSchema, role: roleSchema });

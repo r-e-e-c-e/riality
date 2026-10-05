@@ -1,4 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
+import type { z } from 'zod';
 import type { Database, Transaction } from '../../db/connection';
 import { inTransaction } from '../../db/transaction';
 import { BusinessError, notFound, postgresErrorCode } from '../../errors';
@@ -8,17 +9,19 @@ import {
 	handleSchema,
 	idSchema,
 	membershipSchema,
+	responsibleIndividualSchema,
 	updateFirmSchema
 } from '#lib/schemas/tenancy.js';
-import { recordEvent } from '../audit/audit-event.service';
+import { changedFields, recordEvent } from '../audit/audit-event.service';
 import { removeClientResponsibilities } from '../clients/clients.service';
-import { removeFirmAssignments } from '../engagements/engagements.service';
+import { isEngagementPartner, removeFirmAssignments } from '../engagements/engagements.service';
 import { isActiveUser, users } from '../identity/user.entity';
 import { memberships, type MembershipRole } from './membership.entity';
 import {
 	OWNER_OR_ADMIN,
 	activeOwnerIds,
 	lockTenancyAdministration,
+	requireFirmAdmin,
 	requireFirmMember,
 	requireFirmOwner,
 	requireTenantRole,
@@ -176,12 +179,55 @@ export function createTenancyService(db: Database) {
 					name: users.name,
 					email: users.email,
 					avatarColor: users.avatarColor,
-					role: memberships.role
+					role: memberships.role,
+					responsibleIndividualSince: memberships.responsibleIndividualSince,
+					auditRegulator: memberships.auditRegulator
 				})
 				.from(memberships)
 				.innerJoin(users, eq(users.id, memberships.userId))
 				.where(eq(memberships.tenantId, id))
 				.orderBy(users.name, users.id);
+		},
+
+		/**
+		 * Makes a firm member a Responsible Individual (with the approving regulator and
+		 * date), or not one (no regulator). Owners and admins. Someone who is partner on
+		 * an engagement stays an RI until the engagement has another partner.
+		 */
+		async setResponsibleIndividual(
+			actor: Actor,
+			input: z.input<typeof responsibleIndividualSchema>
+		) {
+			const { tenantId, userId, auditRegulator, since } = responsibleIndividualSchema.parse(input);
+			const changes = {
+				auditRegulator: auditRegulator ?? null,
+				responsibleIndividualSince: since ?? null
+			};
+			await inTransaction(db, async (tx) => {
+				await lockTenancyAdministration(tx);
+				await requireFirmAdmin(tx, actor, tenantId);
+				const thisMembership = and(
+					eq(memberships.tenantId, tenantId),
+					eq(memberships.userId, userId)
+				);
+				const [before] = await tx.select().from(memberships).where(thisMembership);
+				if (!before) throw notFound('Firm member');
+				if (changedFields(before, changes).length === 0) return;
+
+				if (!changes.auditRegulator && (await isEngagementPartner(tx, tenantId, userId)))
+					throw new BusinessError('RI_STILL_PARTNER');
+				await tx.update(memberships).set(changes).where(thisMembership);
+				await recordEvent(tx, {
+					action: 'membership.responsible_individual_changed',
+					actorId: actor.id,
+					tenantId,
+					subjectUserId: userId,
+					details: {
+						auditRegulator: changes.auditRegulator,
+						since: changes.responsibleIndividualSince
+					}
+				});
+			});
 		},
 
 		/**

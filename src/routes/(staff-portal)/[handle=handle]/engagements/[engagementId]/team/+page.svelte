@@ -48,6 +48,7 @@
 				<h2>{member.name}</h2>
 				<p class="muted">{member.email}</p>
 				<span class="badge">{member.role ? teamRoleLabels[member.role] : ''}</span>
+				{#if member.isResponsibleIndividual}<span class="badge">Responsible Individual</span>{/if}
 			</div>
 			<details open={!!assignment.fields.allIssues()?.length || !!assignment.result}>
 				<summary aria-label={`Change role for ${member.name}`}>Change role</summary>
@@ -59,9 +60,11 @@
 						>Team role for {member.name}<select
 							{...assignment.fields.role.as('select', member.role ?? 'auditor')}
 							><option value="auditor">Auditor</option><option value="manager">Manager</option
-							><option value="partner">Partner</option><option value="remove"
-								>Remove from team</option
-							></select
+							><option value="partner" disabled={!member.isResponsibleIndividual}
+								>Partner{member.isResponsibleIndividual
+									? ''
+									: ' (Responsible Individuals only)'}</option
+							><option value="remove">Remove from team</option></select
 						></label
 					>
 					<FormFeedback
@@ -91,7 +94,9 @@
 				>Firm member<select {...add.fields.userId.as('select')} required
 					><option value="">Choose a member</option
 					>{#each available as member (member.userId)}<option value={member.userId}
-							>{member.name}</option
+							>{member.name}{member.isResponsibleIndividual
+								? ' (Responsible Individual)'
+								: ''}</option
 						>{/each}</select
 				></label
 			>
@@ -102,6 +107,7 @@
 					></select
 				></label
 			>
+			<p class="muted">The partner must be a Responsible Individual.</p>
 			<FormFeedback issues={add.fields.allIssues()} />
 			<button type="submit" disabled={!!add.pending}>Add to team</button>
 		</form>

@@ -3,6 +3,7 @@ import type { ClientStatus, RiskRating } from '#lib/clients.js';
 import { addMonths } from '#lib/dates.js';
 import type { AccountingFramework, CompanyStatus, EntityType, SizeClass } from '#lib/companies.js';
 import type { ControlKind, EntityRoleKind, PersonKind } from '#lib/people.js';
+import type { AuditRegulator } from '#lib/staff.js';
 import type { clients, entities, entityRoles, people } from '../modules/clients/client.entity';
 import type { reportingPeriods } from '../modules/engagements/reporting-period.entity';
 import type { EngagementRole } from '../modules/engagements/team.entity';
@@ -20,7 +21,7 @@ export const seedOperator = 'development-seed:v1';
  * 1 users, 2 tenants, 3 audit events, 4 clients, 5 entities, 6 periods, 7 engagements,
  * 8 people, 9 entity roles. Keep IDs stable: tests and bookmarks may use them.
  */
-function fixtureId(range: number, n: number) {
+export function fixtureId(range: number, n: number) {
 	if (n >= 1000) throw new Error(`Too many seed fixtures in range ${range}`);
 	return `01a0f4c2-c400-7000-8000-${String(range * 1000 + n).padStart(12, '0')}`;
 }
@@ -118,17 +119,36 @@ export function tenantRow({ id, name, kind, handle, parentId }: SeedTenant) {
 	return { id, name, kind, handle, parentId };
 }
 
-/** Morgan works across two group firms; Lucy runs two and helps at a third. */
-export const seedMemberships: { tenantId: string; userId: string; role: MembershipRole }[] = [
+/**
+ * Morgan works across two group firms; Lucy runs two and helps at a third. The firms'
+ * partners are Responsible Individuals (approved to sign audit reports); Jamie is not.
+ */
+type SeedMembership = {
+	tenantId: string;
+	userId: string;
+	role: MembershipRole;
+	responsibleIndividualSince?: string;
+	auditRegulator?: AuditRegulator;
+};
+const ri = (since: string, auditRegulator: AuditRegulator = 'icaew') => ({
+	responsibleIndividualSince: since,
+	auditRegulator
+});
+export const seedMemberships: SeedMembership[] = [
 	{ tenantId: seedIds.group, userId: seedIds.groupOwner, role: 'owner' },
 	{ tenantId: seedIds.regionalGroup, userId: seedIds.groupOwner, role: 'owner' },
-	{ tenantId: seedIds.baldwynFirm, userId: seedIds.groupOwner, role: 'owner' },
-	{ tenantId: seedIds.baldwynFirm, userId: seedIds.firmOwner, role: 'admin' },
+	{ tenantId: seedIds.baldwynFirm, userId: seedIds.groupOwner, role: 'owner', ...ri('2011-06-01') },
+	{ tenantId: seedIds.baldwynFirm, userId: seedIds.firmOwner, role: 'admin', ...ri('2016-03-01') },
 	{ tenantId: seedIds.baldwynFirm, userId: seedIds.auditor, role: 'member' },
-	{ tenantId: seedIds.wilkinsFirm, userId: seedIds.firmOwner, role: 'owner' },
-	{ tenantId: seedIds.wilkinsFirm, userId: seedIds.groupOwner, role: 'admin' },
-	{ tenantId: seedIds.hartleyFirm, userId: seedIds.firmOwner, role: 'owner' },
-	{ tenantId: seedIds.standaloneFirm, userId: seedIds.standaloneOwner, role: 'owner' }
+	{ tenantId: seedIds.wilkinsFirm, userId: seedIds.firmOwner, role: 'owner', ...ri('2016-03-01') },
+	{ tenantId: seedIds.wilkinsFirm, userId: seedIds.groupOwner, role: 'admin', ...ri('2011-06-01') },
+	{ tenantId: seedIds.hartleyFirm, userId: seedIds.firmOwner, role: 'owner', ...ri('2016-03-01') },
+	{
+		tenantId: seedIds.standaloneFirm,
+		userId: seedIds.standaloneOwner,
+		role: 'owner',
+		...ri('2019-09-01', 'acca')
+	}
 ];
 
 type Audit = { start: string; end: string; team: [userId: string, role: EngagementRole][] };
@@ -1242,6 +1262,19 @@ for (const membership of seedMemberships) {
 		tenantId: tenant.id,
 		subjectUserId: membership.userId,
 		details: { previousRole: null, newRole: membership.role }
+	});
+}
+for (const membership of seedMemberships) {
+	if (!membership.auditRegulator || !membership.responsibleIndividualSince) continue;
+	record({
+		action: 'membership.responsible_individual_changed',
+		actorId: firmOwnerOf(membership.tenantId),
+		tenantId: membership.tenantId,
+		subjectUserId: membership.userId,
+		details: {
+			auditRegulator: membership.auditRegulator,
+			since: membership.responsibleIndividualSince
+		}
 	});
 }
 for (const client of seedClients) {

@@ -6,11 +6,14 @@
 		inviteMember,
 		revokeInvitation,
 		updateFirm,
-		updateMembership
+		updateMembership,
+		updateResponsibleIndividual
 	} from './settings.remote';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import { formatDate } from '#lib/format.js';
+	import { AUDIT_REGULATORS } from '#lib/staff.js';
+	import { keysOf } from '#lib/companies.js';
 	import { refreshOn } from '#lib/live-updates.svelte.js';
 
 	const workspace = $derived(await getWorkspace(page.params.handle ?? ''));
@@ -41,11 +44,14 @@
 <h2>Team</h2>
 <p class="muted">
 	Members can use the workspace. Admins can also manage clients, engagements and the team. Owners
-	can also manage owners and the firm's details. Engagement access is assigned per engagement.
+	can also manage owners and the firm's details. Engagement access is assigned per engagement. Only
+	Responsible Individuals (approved by your regulator to sign audit reports) can be engagement
+	partner.
 </p>
 <section class="panel roster" aria-label="Team members">
 	{#each members as member (member.userId)}
 		{@const update = updateMembership.for(`${firm.id}:${member.userId}`)}
+		{@const ri = updateResponsibleIndividual.for(`${firm.id}:${member.userId}`)}
 		{@const canChange = isOwner || member.role !== 'owner'}
 		<div class="roster-row">
 			<div class="member">
@@ -54,10 +60,13 @@
 					<h3>{member.name}</h3>
 					<p class="muted">{member.email}</p>
 					<span class="badge">{roleLabels[member.role]}</span>
+					{#if member.auditRegulator && member.responsibleIndividualSince}<span class="badge"
+							>Responsible Individual · {AUDIT_REGULATORS[member.auditRegulator]}</span
+						>{/if}
 				</div>
 			</div>
 			{#if canChange}
-				<details open={!!update.fields.allIssues()?.length}>
+				<details open={!!update.fields.allIssues()?.length || !!ri.fields.allIssues()?.length}>
 					<summary aria-label={`Change access for ${member.name}`}>Change access</summary>
 					<form {...update}>
 						<input {...update.fields.tenantId.as('hidden', firm.id)} />
@@ -74,6 +83,30 @@
 						<FormFeedback issues={update.fields.allIssues()} message={update.result?.message} />
 						<button class="secondary" type="submit" disabled={!!update.pending}
 							>Update access</button
+						>
+					</form>
+					<form {...ri}>
+						<input {...ri.fields.tenantId.as('hidden', firm.id)} />
+						<input {...ri.fields.userId.as('hidden', member.userId)} />
+						<div class="field-pair">
+							<label
+								>Responsible Individual<select
+									{...ri.fields.auditRegulator.as('select', member.auditRegulator ?? '')}
+									><option value="">No</option
+									>{#each keysOf(AUDIT_REGULATORS) as regulator (regulator)}<option
+											value={regulator}>Yes, approved by {AUDIT_REGULATORS[regulator]}</option
+										>{/each}</select
+								></label
+							>
+							<label
+								>Since<input
+									{...ri.fields.since.as('date', member.responsibleIndividualSince ?? '')}
+								/></label
+							>
+						</div>
+						<FormFeedback issues={ri.fields.allIssues()} message={ri.result?.message} />
+						<button class="secondary" type="submit" disabled={!!ri.pending}
+							>Save Responsible Individual status</button
 						>
 					</form>
 				</details>

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { Database, Transaction } from '../../db/connection';
 import { inTransaction } from '../../db/transaction';
@@ -141,6 +141,22 @@ export async function removeFirmAssignments(
 	}
 }
 
+/** True if the user is partner on any of the firm's engagements. */
+export async function isEngagementPartner(tx: Transaction, firmId: string, userId: string) {
+	const [assignment] = await tx
+		.select({ engagementId: engagementTeam.engagementId })
+		.from(engagementTeam)
+		.where(
+			and(
+				eq(engagementTeam.firmId, firmId),
+				eq(engagementTeam.userId, userId),
+				eq(engagementTeam.role, 'partner')
+			)
+		)
+		.limit(1);
+	return Boolean(assignment);
+}
+
 /**
  * Engagements and engagement teams (clients and entities are in the clients module).
  * Every method checks access first, then filters queries by the firm.
@@ -266,7 +282,8 @@ export function createEngagementsService(db: Database) {
 					userId: users.id,
 					name: users.name,
 					email: users.email,
-					role: engagementTeam.role
+					role: engagementTeam.role,
+					isResponsibleIndividual: sql<boolean>`${memberships.responsibleIndividualSince} is not null`
 				})
 				.from(memberships)
 				.innerJoin(users, eq(users.id, memberships.userId))
@@ -302,13 +319,15 @@ export function createEngagementsService(db: Database) {
 
 				if (role) {
 					const [member] = await tx
-						.select({ id: users.id })
+						.select({ riSince: memberships.responsibleIndividualSince })
 						.from(memberships)
 						.innerJoin(users, eq(users.id, memberships.userId))
 						.where(
 							and(eq(memberships.tenantId, firmId), eq(memberships.userId, userId), isActiveUser())
 						);
 					if (!member) throw notFound('Active firm member');
+					// The engagement partner signs the audit report, so must be an RI.
+					if (role === 'partner' && !member.riSince) throw new BusinessError('PARTNER_MUST_BE_RI');
 				}
 
 				const thisAssignment = and(

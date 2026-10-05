@@ -148,9 +148,9 @@ test('prioritises assigned work, discloses setup and team edits, and enforces cu
 		expect((await staff.goto(teamUrl))?.status()).toBe(403);
 		expect((await staff.goto(`/${handle}/settings`))?.status()).toBe(403);
 		expect((await staff.goto(`/${handle}/engagements/new`))?.status()).toBe(403);
-		await saveTeamRole(page, 'Synthetic Engagement Member', 'partner');
+		await saveTeamRole(page, 'Synthetic Engagement Member', 'manager');
 		await staff.goto(engagementUrl);
-		await expect(staff.getByRole('definition').filter({ hasText: /^Partner$/ })).toBeVisible();
+		await expect(staff.getByRole('definition').filter({ hasText: /^Manager$/ })).toBeVisible();
 		await saveTeamRole(page, 'Synthetic Engagement Member', 'remove');
 		expect((await staff.goto(engagementUrl))?.status()).toBe(404);
 		await staff.goto('/');

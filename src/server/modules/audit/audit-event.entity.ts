@@ -6,6 +6,7 @@ import { tenants } from '../tenancy/tenant.entity';
 import type { MembershipRole } from '../tenancy/membership.entity';
 import type { EngagementRole } from '../engagements/team.entity';
 import type { EntityRoleKind } from '#lib/people.js';
+import type { AuditRegulator } from '#lib/staff.js';
 
 type NoDetails = Record<string, never>;
 
@@ -42,6 +43,10 @@ export type AuditDetails = {
 	'tenant.moved': { previousParentId: string | null; newParentId: string | null };
 	'membership.changed': { previousRole: MembershipRole | null; newRole: MembershipRole };
 	'membership.removed': { previousRole: MembershipRole };
+	'membership.responsible_individual_changed': {
+		auditRegulator: AuditRegulator | null;
+		since: string | null;
+	};
 	/** recipientFingerprint is a keyed hash of the invited email, so history holds no raw emails. */
 	'invitation.created': { role: MembershipRole; recipientFingerprint: string };
 	'invitation.accepted': { recipientFingerprint: string };

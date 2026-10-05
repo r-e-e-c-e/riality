@@ -80,7 +80,11 @@ STATUTORY_AUDIT
 - Engagements stay in SETUP. Creating one is not acceptance or professional approval.
 - Firm owners/admins create clients, entities and engagements and manage teams.
 - A team member is an auditor, manager or partner. These are responsibilities, not
-  tenant roles and not sign-off authority. The creator becomes manager.
+  tenant roles. The creator becomes manager.
+- A firm member may be a **Responsible Individual (RI)**: approved by an audit
+  regulator (ICAEW, ACCA, ICAS, CAI) to sign audit reports for that firm. Only an RI can
+  be engagement partner, and someone stays an RI while they are partner on an
+  engagement. Owners and admins record RI status (regulator and date) in Settings.
 - Owners and admins manage people and roles and see the People list; members see
   the people of entities they have an engagement for. Roles are ended by setting an
   end date; removing one is only for mistakes. Both are audited.

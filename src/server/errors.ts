@@ -86,6 +86,14 @@ const BUSINESS_ERRORS = {
 		message: 'A tenant cannot be placed inside itself or its descendants'
 	},
 	LAST_OWNER: { status: 409, message: 'There must always be at least one active owner' },
+	PARTNER_MUST_BE_RI: {
+		status: 409,
+		message: 'Only a Responsible Individual can be engagement partner'
+	},
+	RI_STILL_PARTNER: {
+		status: 409,
+		message: 'They are partner on an engagement. Choose another partner for it first'
+	},
 	HANDLE_TAKEN: { status: 409, message: 'That handle is already taken. Choose another' },
 	INVITATION_INVALID: {
 		status: 400,
@@ -105,6 +113,7 @@ const BUSINESS_ERRORS = {
 		status: 503,
 		message: 'Companies House lookups are not set up. Enter the details by hand.'
 	},
+
 
 	// Engagements
 	ENGAGEMENT_EXISTS: {

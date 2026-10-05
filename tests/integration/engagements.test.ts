@@ -153,8 +153,22 @@ test('firm administration, parent ownership and team responsibilities grant dist
 		await expect(
 			f.clients.createClient(f.member, { firmId: f.firm.id, name: 'Denied' })
 		).rejects.toMatchObject({ status: 403 });
+		// Only a Responsible Individual can be engagement partner, and stays one while partner.
+		await expect(
+			f.service.setAssignment(f.owner, { ...f.scope, userId: f.member.id, role: 'partner' })
+		).rejects.toMatchObject({ code: 'PARTNER_MUST_BE_RI' });
+		const tenancy = createTenancyService(f.db);
+		const riScope = { tenantId: f.firm.id, userId: f.member.id };
+		await tenancy.setResponsibleIndividual(f.owner, {
+			...riScope,
+			auditRegulator: 'icaew',
+			since: '2020-01-01'
+		});
 		await f.service.setAssignment(f.owner, { ...f.scope, userId: f.member.id, role: 'partner' });
 		expect((await f.service.get(f.member, f.scope)).myRole).toBe('partner');
+		await expect(tenancy.setResponsibleIndividual(f.owner, riScope)).rejects.toMatchObject({
+			code: 'RI_STILL_PARTNER'
+		});
 		expect((await f.service.listAssigned(f.member, f.firm.id)).map((row) => row.id)).toEqual([
 			f.engagement.id
 		]);

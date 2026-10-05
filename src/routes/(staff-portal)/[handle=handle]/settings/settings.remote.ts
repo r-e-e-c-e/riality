@@ -9,6 +9,7 @@ import {
 	idSchema,
 	inviteSchema,
 	membershipFormSchema,
+	responsibleIndividualSchema,
 	updateFirmSchema
 } from '#lib/schemas/tenancy.js';
 
@@ -25,6 +26,12 @@ export const updateMembership = form(membershipFormSchema, async (input) => {
 	if (lostOwnAccess) redirect(303, input.role ? `/${input.handle}` : '/');
 	await getMembers(input.tenantId).refresh();
 	return { message: 'Access updated.' };
+});
+
+export const updateResponsibleIndividual = form(responsibleIndividualSchema, async (input) => {
+	await submit(() => tenancy.setResponsibleIndividual(requireRecentUser(), input));
+	await getMembers(input.tenantId).refresh();
+	return { message: input.auditRegulator ? 'Saved as a Responsible Individual.' : 'Saved.' };
 });
 
 export const inviteMember = form(inviteSchema, async (input) => {
