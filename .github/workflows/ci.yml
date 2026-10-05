@@ -1,0 +1,42 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: lines_test
+          POSTGRES_PASSWORD: synthetic-ci-password
+          POSTGRES_DB: lines_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lines_test -d lines_ci_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://lines_test:synthetic-ci-password@127.0.0.1:5432/lines_ci_test
+      TEST_DATABASE_URL: postgres://lines_test:synthetic-ci-password@127.0.0.1:5432/lines_ci_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - run: bun x playwright install --with-deps chromium
+      - run: bun run lint
+      - run: bun run check
+      - run: bun run db:check
+      - run: bun run test:components --run
+      - run: bun run test:integration
+      - run: bun run test:e2e
+      - run: bun run test:e2e --grep 'MFA requirement'
+        env:
+          TEST_REQUIRE_MFA: 'true'
+      - run: bun run build
+      - run: bun audit

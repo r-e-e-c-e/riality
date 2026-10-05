@@ -8,3 +8,6 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
+
+# Bundled Svelte documentation contains diff markers inside code examples.
+/.github/skills/

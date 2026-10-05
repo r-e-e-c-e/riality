@@ -1,0 +1,3 @@
+[test]
+# Silences expected warnings (failed sign-ins in tests) and lets tests inspect them.
+preload = ["./tests/setup.ts"]
