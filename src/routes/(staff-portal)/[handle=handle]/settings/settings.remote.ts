@@ -3,6 +3,7 @@ import { redirect } from '@sveltejs/kit';
 import { z } from 'zod';
 import { invitations, tenancy } from '#server/app.js';
 import { isOwnerOrAdmin } from '#server/modules/tenancy/tenancy-access.js';
+import { getMembers } from '#lib/remotes/workspace.remote.js';
 import { requireRecentUser, requireUser, submit } from '#server/request.js';
 import {
 	idSchema,
@@ -10,8 +11,6 @@ import {
 	membershipFormSchema,
 	updateFirmSchema
 } from '#lib/schemas/tenancy.js';
-
-export const getMembers = query(idSchema, (firmId) => tenancy.listMembers(requireUser(), firmId));
 
 export const getInvitations = query(idSchema, (firmId) => invitations.list(requireUser(), firmId));
 

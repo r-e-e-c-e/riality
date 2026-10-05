@@ -611,3 +611,52 @@ details > :not(summary) {
 	margin: 0;
 	padding: 0;
 }
+.badge.warning {
+	background: #fbefd9;
+	color: #7a4b00;
+}
+.urgent {
+	color: #a3261c;
+	font-weight: 600;
+}
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 0.75rem 1rem;
+	margin-bottom: 0.5rem;
+}
+.filters label {
+	flex: 0 1 auto;
+}
+.filters label:first-child {
+	flex: 1 1 18rem;
+}
+.checkbox {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding-bottom: 0.6rem;
+}
+.client-table td {
+	vertical-align: top;
+}
+.client-table .badge {
+	margin-left: 0.4rem;
+}
+.entity-lines {
+	margin: 0.4rem 0 0;
+	padding-left: 1.1rem;
+	color: #596c64;
+	font-size: 0.85rem;
+}
+.people-grid th[scope='row'] {
+	font-size: 1rem;
+	color: inherit;
+	font-weight: 600;
+}
+.people-grid ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}

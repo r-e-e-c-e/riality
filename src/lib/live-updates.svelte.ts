@@ -135,12 +135,16 @@ export function connectLiveUpdates() {
 	};
 }
 
-/** True for a change to one of the firm's clients, entities or engagements (including teams). */
+/**
+ * True for a change to one of the firm's clients, entities, people or engagements
+ * (including teams and roles).
+ */
 export function isFirmRecordChange(change: Change, firmId: string) {
 	return (
 		change.tenantId === firmId &&
 		(change.engagementId !== null ||
 			change.targetType === 'client' ||
-			change.targetType === 'entity')
+			change.targetType === 'entity' ||
+			change.targetType === 'person')
 	);
 }

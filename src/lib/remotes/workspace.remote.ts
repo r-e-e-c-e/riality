@@ -1,5 +1,6 @@
 import { getRequestEvent, query } from '$app/server';
 import { z } from 'zod';
+import { idSchema } from '#lib/schemas/tenancy.js';
 import { identity, tenancy } from '#server/app.js';
 import { isMfaPending, requireUser } from '#server/request.js';
 import { isOwnerOrAdmin } from '#server/modules/tenancy/tenancy-access.js';
@@ -33,3 +34,6 @@ export const getWorkspace = query(z.string().max(100), async (handle) => {
 	await identity.rememberLastFirm(user.id, workspace.firm.id);
 	return { ...workspace, canManage: isOwnerOrAdmin(workspace.role) };
 });
+
+/** The firm's members (owners and admins only): the Settings page and partner/manager choices. */
+export const getMembers = query(idSchema, (firmId) => tenancy.listMembers(requireUser(), firmId));

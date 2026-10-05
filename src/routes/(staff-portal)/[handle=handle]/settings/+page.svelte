@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getWorkspace } from '#lib/remotes/workspace.remote.js';
+	import { getMembers, getWorkspace } from '#lib/remotes/workspace.remote.js';
 	import {
 		getInvitations,
-		getMembers,
 		inviteMember,
 		revokeInvitation,
 		updateFirm,

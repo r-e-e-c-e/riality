@@ -21,3 +21,22 @@ export const teamRoleLabels = {
 	manager: 'Manager',
 	partner: 'Partner'
 } as const;
+
+const shortMonths = [
+	'Jan',
+	'Feb',
+	'Mar',
+	'Apr',
+	'May',
+	'Jun',
+	'Jul',
+	'Aug',
+	'Sep',
+	'Oct',
+	'Nov',
+	'Dec'
+];
+/** A year end such as "31 Dec", or null if it is not set. */
+export function formatYearEnd(day: number | null, month: number | null) {
+	return day && month ? `${day} ${shortMonths[month - 1]}` : null;
+}
