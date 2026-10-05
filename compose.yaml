@@ -1,3 +1,4 @@
+# Local development services. Synthetic data only.
 services:
   db:
     image: postgres:18
@@ -10,5 +11,32 @@ services:
       POSTGRES_DB: local
     volumes:
       - pgdata:/var/lib/postgresql
+
+  # S3-compatible file storage (production uses Cloudflare R2). MinIO built by
+  # Chainguard, because MinIO no longer publishes community images.
+  # Console: http://localhost:9001 (lines / lines-local-secret).
+  storage:
+    image: cgr.dev/chainguard/minio:latest
+    restart: always
+    command: ['server', '/data', '--console-address', ':9001']
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    environment:
+      MINIO_ROOT_USER: lines
+      MINIO_ROOT_PASSWORD: lines-local-secret
+    volumes:
+      - storagedata:/data
+
+  # Creates the development bucket once storage is up, then exits.
+  storage-setup:
+    image: cgr.dev/chainguard/minio-client:latest
+    depends_on: [storage]
+    restart: on-failure
+    environment:
+      MC_HOST_local: http://lines:lines-local-secret@storage:9000
+    command: ['mb', '--ignore-existing', 'local/lines-dev']
+
 volumes:
   pgdata:
+  storagedata:

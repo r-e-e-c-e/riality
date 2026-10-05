@@ -5,6 +5,15 @@ export type Environment = { [Name in keyof typeof variables]?: string };
 
 export type MailConfig = { mode: 'preview' } | { mode: 'resend'; apiKey: string; from: string };
 
+/** S3-compatible file storage: MinIO locally, Cloudflare R2 in production. */
+export type StorageConfig = {
+	endpoint: string;
+	bucket: string;
+	region: string;
+	accessKeyId: string;
+	secretAccessKey: string;
+};
+
 export type Config = {
 	databaseUrl: string;
 	/** Public origin with no path, for example https://app.example.com. */
@@ -17,6 +26,8 @@ export type Config = {
 	mail: MailConfig;
 	/** Null when no key is configured: Companies House lookups are then turned off. */
 	companiesHouseApiKey: string | null;
+	/** Null when storage is not configured: documents are then turned off. */
+	storage: StorageConfig | null;
 };
 
 const LOCAL_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
@@ -51,7 +62,8 @@ export function createConfig(
 			requireMfa: true,
 			signup: 'public',
 			mail: { mode: 'preview' },
-			companiesHouseApiKey: null
+			companiesHouseApiKey: null,
+			storage: null
 		};
 	}
 
@@ -60,7 +72,10 @@ export function createConfig(
 		throw new Error('Configure AUTH_ENCRYPTION_KEY. Create one with: bun run auth:key');
 
 	const mail = parseMail(env);
+	const storage = parseStorage(env);
 	if (!isLocal) {
+		if (storage && !storage.endpoint.startsWith('https://'))
+			throw new Error('Public deployments require an HTTPS S3_ENDPOINT');
 		if (origin.protocol !== 'https:')
 			throw new Error('Public deployments require an HTTPS APP_ORIGIN');
 		if (mail.mode !== 'resend')
@@ -77,7 +92,8 @@ export function createConfig(
 		requireMfa: !isLocal || env.REQUIRE_MFA === 'true',
 		signup: env.SIGNUP_MODE === 'invitation' ? 'invitation' : 'public',
 		mail,
-		companiesHouseApiKey: env.COMPANIES_HOUSE_API_KEY || null
+		companiesHouseApiKey: env.COMPANIES_HOUSE_API_KEY || null,
+		storage
 	};
 }
 
@@ -101,4 +117,21 @@ function parseMail(env: Environment): MailConfig {
 	if (!env.RESEND_API_KEY || !env.MAIL_FROM || /[\r\n]/.test(env.MAIL_FROM))
 		throw new Error('MAIL_MODE=resend requires RESEND_API_KEY and a single-line MAIL_FROM');
 	return { mode: 'resend', apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM };
+}
+
+function parseStorage(env: Environment): StorageConfig | null {
+	const { S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY } = env;
+	const values = [S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY];
+	if (values.every((value) => !value)) return null;
+	if (!S3_ENDPOINT || !S3_BUCKET || !S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY)
+		throw new Error(
+			'Configure all of S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or none'
+		);
+	return {
+		endpoint: S3_ENDPOINT,
+		bucket: S3_BUCKET,
+		region: env.S3_REGION || 'auto',
+		accessKeyId: S3_ACCESS_KEY_ID,
+		secretAccessKey: S3_SECRET_ACCESS_KEY
+	};
 }

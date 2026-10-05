@@ -1,8 +1,9 @@
 import { form, query } from '$app/server';
-import { clients, people } from '#server/app.js';
+import { clients, config, documents, people } from '#server/app.js';
 import { requireUser, submit } from '#server/request.js';
 import { entityScopeSchema, updateEntitySchema } from '#lib/schemas/clients.js';
 import { addRoleSchema, roleScopeSchema, updateRoleSchema } from '#lib/schemas/people.js';
+import { documentScopeSchema, uploadDocumentSchema } from '#lib/schemas/documents.js';
 import { getPeople } from '#lib/remotes/people.remote.js';
 
 export const getEntity = query(entityScopeSchema, (scope) =>
@@ -64,4 +65,25 @@ export const importPeople = form(entityScopeSchema, async (scope) => {
 				? 'Already up to date with Companies House.'
 				: `Imported from Companies House: ${counts.rolesAdded} roles added, ${counts.rolesUpdated} updated.`
 	};
+});
+
+/** The entity's permanent file, and whether uploads are possible (storage is set up). */
+export const getEntityDocuments = query(entityScopeSchema, async (scope) => ({
+	documents: await documents.listForEntity(requireUser(), scope),
+	canUpload: config.storage !== null
+}));
+
+export const uploadDocument = form(uploadDocumentSchema, async (input) => {
+	const document = await submit(() => documents.upload(requireUser(), input), {
+		DOCUMENT_TYPE_NOT_ALLOWED: 'file',
+		DOCUMENT_TOO_LARGE: 'file'
+	});
+	await getEntityDocuments({ firmId: input.firmId, entityId: input.entityId }).refresh();
+	return { message: `${document.title} uploaded.` };
+});
+
+export const removeDocument = form(documentScopeSchema, async (input) => {
+	const document = await submit(() => documents.remove(requireUser(), input));
+	await getEntityDocuments({ firmId: input.firmId, entityId: document.entityId }).refresh();
+	return { message: 'Document removed.' };
 });

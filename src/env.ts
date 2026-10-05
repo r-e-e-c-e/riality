@@ -33,6 +33,21 @@ export const variables = defineEnvVars({
 		schema: z.string().optional(),
 		description: 'Companies House API key. Without it, entities are entered by hand.'
 	},
+	S3_ENDPOINT: {
+		schema: z.string().optional(),
+		description:
+			'S3-compatible file storage, for example https://<account>.r2.cloudflarestorage.com. Without it, documents are turned off.'
+	},
+	S3_BUCKET: { schema: z.string().optional(), description: 'The storage bucket for documents.' },
+	S3_REGION: {
+		schema: z.string().optional(),
+		description: 'Storage region: "auto" for R2 (the default), "us-east-1" for MinIO.'
+	},
+	S3_ACCESS_KEY_ID: { schema: z.string().optional(), description: 'Storage access key ID.' },
+	S3_SECRET_ACCESS_KEY: {
+		schema: z.string().optional(),
+		description: 'Storage secret access key.'
+	},
 	MAIL_FROM: {
 		schema: z.string().optional(),
 		description: 'Verified sender address, for example "Lines <accounts@example.com>".'

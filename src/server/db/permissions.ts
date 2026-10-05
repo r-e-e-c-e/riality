@@ -18,6 +18,7 @@ export const runtimeTables = [
 	'entity',
 	'person',
 	'entity_role',
+	'document',
 	'reporting_period',
 	'engagement',
 	'engagement_team'

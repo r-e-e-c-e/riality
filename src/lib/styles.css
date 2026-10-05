@@ -693,3 +693,23 @@ details > :not(summary) {
 	margin-left: 0.4rem;
 	font-size: 0.9rem;
 }
+.section-label {
+	margin: 1.25rem 0 0.5rem;
+	font-size: 0.85rem;
+	color: #596c64;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.document-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.document-list li {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 1rem;
+	padding: 0.6rem 0;
+	border-bottom: 1px solid #edf2ef;
+}

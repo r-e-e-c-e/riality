@@ -5,6 +5,7 @@
 	import { getEntity, refreshEntity, updateEntity } from './entity.remote';
 	import FormFeedback from '#lib/components/FormFeedback.svelte';
 	import EntityPeople from './EntityPeople.svelte';
+	import EntityDocuments from './EntityDocuments.svelte';
 	import {
 		ACCOUNTING_FRAMEWORKS,
 		COMPANY_STATUSES,
@@ -106,6 +107,8 @@
 	canManage={workspace.canManage}
 	canImport={companiesHouseEnabled && !!entity.companyNumber}
 />
+
+<EntityDocuments {scope} handle={workspace.firm.handle} canManage={workspace.canManage} />
 
 {#if workspace.canManage}
 	<details class="panel disclosure" open={!!updateEntity.fields.allIssues()?.length}>

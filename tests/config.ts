@@ -14,6 +14,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
 		signup: 'public',
 		mail: { mode: 'preview' },
 		companiesHouseApiKey: null,
+		storage: null,
 		...overrides
 	};
 }

@@ -46,7 +46,8 @@ export const RATE_LIMITS = {
 	resetEmailsPerAddress: { name: 'reset-emails:address', limit: 100, windowMinutes: 15 },
 	invitationsPerUser: { name: 'invitations:user', limit: 100, windowMinutes: 60 },
 	/** Companies House allows 600 calls per 5 minutes for the whole app; keep each user well below. */
-	companiesHouseLookupsPerUser: { name: 'companies-house:user', limit: 100, windowMinutes: 5 }
+	companiesHouseLookupsPerUser: { name: 'companies-house:user', limit: 100, windowMinutes: 5 },
+	documentUploadsPerUser: { name: 'document-uploads:user', limit: 200, windowMinutes: 60 }
 } satisfies Record<string, RateLimitRule>;
 
 /**

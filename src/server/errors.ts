@@ -114,6 +114,17 @@ const BUSINESS_ERRORS = {
 		message: 'Companies House lookups are not set up. Enter the details by hand.'
 	},
 
+	// Documents
+	DOCUMENT_TYPE_NOT_ALLOWED: {
+		status: 415,
+		message: 'Upload a PDF, Word, Excel, CSV, Outlook email or image file'
+	},
+	DOCUMENT_TOO_LARGE: { status: 413, message: 'Files can be up to 25 MB' },
+	STORAGE_NOT_CONFIGURED: { status: 503, message: 'Document storage is not set up' },
+	STORAGE_UNAVAILABLE: {
+		status: 503,
+		message: 'Document storage is not responding. Please try again.'
+	},
 
 	// Engagements
 	ENGAGEMENT_EXISTS: {

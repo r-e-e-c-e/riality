@@ -7,6 +7,7 @@ import type { MembershipRole } from '../tenancy/membership.entity';
 import type { EngagementRole } from '../engagements/team.entity';
 import type { EntityRoleKind } from '#lib/people.js';
 import type { AuditRegulator } from '#lib/staff.js';
+import type { DocumentCategory } from '#lib/documents.js';
 
 type NoDetails = Record<string, never>;
 
@@ -75,6 +76,9 @@ export type AuditDetails = {
 		source: 'manual' | 'companies_house';
 	};
 	'entity_role.removed': { roleId: string; personId: string; role: EntityRoleKind };
+	// Document events target the entity, so its page and history show them.
+	'document.uploaded': { documentId: string; category: DocumentCategory; sizeBytes: number };
+	'document.removed': { documentId: string };
 	'engagement.created': {
 		clientId: string;
 		entityId: string;

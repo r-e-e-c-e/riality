@@ -12,7 +12,12 @@ export default defineConfig({
 			REQUIRE_MFA: process.env.TEST_REQUIRE_MFA ?? 'false',
 			MAIL_MODE: 'preview',
 			// Bun loads .env, so blank this: browser tests never call Companies House.
-			COMPANIES_HOUSE_API_KEY: ''
+			COMPANIES_HOUSE_API_KEY: '',
+			// Browser tests don't use file storage.
+			S3_ENDPOINT: '',
+			S3_BUCKET: '',
+			S3_ACCESS_KEY_ID: '',
+			S3_SECRET_ACCESS_KEY: ''
 		}
 	},
 	workers: 1,
